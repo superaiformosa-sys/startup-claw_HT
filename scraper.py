@@ -41,7 +41,7 @@ def get_or_create_sheet(gc: gspread.Client, tab_name: str) -> gspread.Worksheet:
         return ss.worksheet(tab_name)
     except gspread.WorksheetNotFound:
         ws = ss.add_worksheet(title=tab_name, rows=2000, cols=7)
-        rows_batch.append(["url", "title", "content", "source", "region", "fetchedAt", "processed"])
+        ws.append_row(["url", "title", "content", "source", "region", "fetchedAt", "processed"])
         ws.freeze(rows=1)
         logger.info("Created sheet tab: %s", tab_name)
         return ws

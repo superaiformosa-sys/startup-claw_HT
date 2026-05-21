@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>新創情報周報 第 21 週</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #c9d1d9; --muted: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149;
+    --purple: #bc8cff; --cyan: #79c0ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; padding: 24px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .header { text-align: center; padding: 40px 0 30px; border-bottom: 1px solid var(--border); margin-bottom: 30px; }
+  .header h1 { font-size: 2.4rem; font-weight: 800; background: linear-gradient(135deg, #58a6ff, #bc8cff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .header .meta { color: var(--muted); margin-top: 8px; font-size: 0.95rem; letter-spacing: 0.05em; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 30px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; text-align: center; transition: transform 0.2s; }
+  .card:hover { transform: translateY(-2px); }
+  .card .num { font-size: 2.5rem; font-weight: 700; }
+  .card .label { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+  .section { margin-bottom: 30px; }
+  .section-title { font-size: 1.1rem; font-weight: 700; color: var(--accent); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+  th { background: #1c2128; color: var(--muted); padding: 10px 16px; text-align: left; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  td { padding: 10px 16px; border-top: 1px solid var(--border); font-size: 0.92rem; vertical-align: top; }
+  tr:hover td { background: rgba(88, 166, 255, 0.05); }
+  .bar-wrap { background: #1c2128; border-radius: 4px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #58a6ff, #bc8cff); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-blue { background: rgba(88,166,255,0.15); color: var(--cyan); }
+  .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge-purple { background: rgba(188,140,255,0.15); color: var(--purple); }
+  .notable-list { list-style: none; }
+  .notable-list li { padding: 10px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; }
+  .notable-list li:last-child { border-bottom: none; }
+  .notable-list a { color: var(--text); text-decoration: none; }
+  .notable-list a:hover { color: var(--accent); }
+  .idx { color: var(--muted); min-width: 24px; text-align: right; padding-top: 2px; font-size: 0.85rem; }
+  .footer { text-align: center; color: var(--muted); font-size: 0.82rem; padding: 24px 0; border-top: 1px solid var(--border); margin-top: 20px; }
+  @media (max-width: 700px) { .cards { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>🚀 新創情報周報</h1>
+    <div class="meta">第 21 週 &nbsp;·&nbsp; 2026-05-20 &nbsp;·&nbsp; 資料來源: raw_2026-05-20</div>
+  </div>
+
+  <div class="cards">
+    <div class="card"><div class="num" style="color:#58a6ff">91</div><div class="label">總文章數</div></div>
+    <div class="card"><div class="num" style="color:#3fb950">19</div><div class="label">AI 已分析</div></div>
+    <div class="card"><div class="num" style="color:#d29922">10</div><div class="label">融資新聞</div></div>
+    <div class="card"><div class="num" style="color:#bc8cff">8</div><div class="label">重點新聞</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🌍 地區分佈</div>
+    <table>
+      <thead><tr><th>地區</th><th>文章數</th><th>佔比</th><th>文章量</th></tr></thead>
+      <tbody><tr><td>🇹🇼 台灣</td><td><strong>4</strong></td><td>4.4%</td><td><div class='bar-wrap'><div class='bar-fill' style='width:4%'></div></div></td></tr><tr><td>🇨🇳 中國</td><td><strong>54</strong></td><td>59.3%</td><td><div class='bar-wrap'><div class='bar-fill' style='width:59%'></div></div></td></tr><tr><td>🌏 東南亞</td><td><strong>0</strong></td><td>0.0%</td><td><div class='bar-wrap'><div class='bar-fill' style='width:0%'></div></div></td></tr><tr><td>🌐 全球</td><td><strong>33</strong></td><td>36.3%</td><td><div class='bar-wrap'><div class='bar-fill' style='width:36%'></div></div></td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <div class="section-title">🔥 產業熱度</div>
+    <table>
+      <thead><tr><th>產業</th><th>熱度</th><th>文章數</th></tr></thead>
+      <tbody><tr><td>AI</td><td><div class='bar-wrap'><div class='bar-fill' style='width:100%'></div></div></td><td><strong>42</strong></td></tr><tr><td>其他</td><td><div class='bar-wrap'><div class='bar-fill' style='width:100%'></div></div></td><td><strong>42</strong></td></tr><tr><td>Mobility</td><td><div class='bar-wrap'><div class='bar-fill' style='width:31%'></div></div></td><td><strong>13</strong></td></tr><tr><td>電商</td><td><div class='bar-wrap'><div class='bar-fill' style='width:7%'></div></div></td><td><strong>3</strong></td></tr><tr><td>生技</td><td><div class='bar-wrap'><div class='bar-fill' style='width:5%'></div></div></td><td><strong>2</strong></td></tr><tr><td>半導體</td><td><div class='bar-wrap'><div class='bar-fill' style='width:5%'></div></div></td><td><strong>2</strong></td></tr><tr><td>GreenTech</td><td><div class='bar-wrap'><div class='bar-fill' style='width:2%'></div></div></td><td><strong>1</strong></td></tr><tr><td>FinTech</td><td><div class='bar-wrap'><div class='bar-fill' style='width:2%'></div></div></td><td><strong>1</strong></td></tr><tr><td>醫療</td><td><div class='bar-wrap'><div class='bar-fill' style='width:2%'></div></div></td><td><strong>1</strong></td></tr><tr><td>SaaS</td><td><div class='bar-wrap'><div class='bar-fill' style='width:2%'></div></div></td><td><strong>1</strong></td></tr></tbody>
+    </table>
+  </div>
+
+  <div class='section'><div class='section-title'>💰 融資亮點</div><table><thead><tr><th>#</th><th>標題</th><th>金額</th><th>地區</th><th>輪次</th></tr></thead><tbody><tr><td class='idx'>1</td><td><a href='https://techcrunch.com/2026/05/19/from-teen-hacker-to-iron-dome-researcher-this-founder-raised-28m-to-fight-ai-phishing/' target='_blank'>From teen hacker to Iron Dome researcher, this founder raised $28M to </a></td><td><span class='badge badge-green'>$28M</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>2</td><td><a href='https://techcrunch.com/2026/05/19/gamified-social-media-network-status-announces-17m-funding-to-help-usher-in-new-era-of-social-networking/' target='_blank'>Forget the feed: Status AI raises $17M to turn social media into inter</a></td><td><span class='badge badge-green'>$17M</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>3</td><td><a href='https://techcrunch.com/2026/05/19/legal-tech-announced-stilta-announces-10m-seed-backed-by-yc-and-a16z-months-after-launch/' target='_blank'>Stilta raises $10.5M from a16z and YC to help companies rediscover the</a></td><td><span class='badge badge-green'>$10.5M</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>4</td><td><a href='https://techcrunch.com/2026/05/16/marketing-operating-system-nectar-social-raises-30m-series-a-in-round-led-by-menlo/' target='_blank'>Marketing operating system Nectar Social raises $30M Series A led by M</a></td><td><span class='badge badge-green'>$30M</span></td><td>🌐 全球</td><td><span class='badge badge-blue'>A輪</span></td></tr><tr><td class='idx'>5</td><td><a href='https://techcrunch.com/2026/05/16/60b-ai-chip-darling-cerebras-almost-died-early-on-burning-8m-a-month/' target='_blank'>$60B AI chip darling Cerebras almost died early on, burning $8M a mont</a></td><td><span class='badge badge-green'>$60B</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>6</td><td><a href='https://techcrunch.com/2026/05/15/meridian-ventures-launched-35m-fund-to-back-mba-deferred-founders/' target='_blank'>Meridian Ventures launched a $35M fund with a focus on MBA-deferred fo</a></td><td><span class='badge badge-green'>$35M</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>7</td><td><a href='https://techcrunch.com/2026/05/13/clios-500m-milestone-arrives-just-as-anthropic-ups-the-ante/' target='_blank'>Clio’s $500M milestone arrives just as Anthropic ups the ante</a></td><td><span class='badge badge-green'>$500M</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>8</td><td><a href='https://techcrunch.com/2026/05/13/anduril-raises-5b-doubles-valuation-to-61b/' target='_blank'>Anduril raises $5B, doubles valuation to $61B</a></td><td><span class='badge badge-green'>$5B</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>9</td><td><a href='https://news.crunchbase.com/real-estate-property-tech/xpanner-automation-as-a-service-for-construction-sites-startup-funding-physical-ai-robotics/' target='_blank'>Exclusive: Xpanner Lands $18M To Offer ‘Automation As A Service’ To Co</a></td><td><span class='badge badge-green'>$18M</span></td><td>🌐 全球</td><td>-</td></tr><tr><td class='idx'>10</td><td><a href='https://news.crunchbase.com/defense-tech/anduril-5b-valuation-vc-funding-record-data/' target='_blank'>Anduril Raises Another $5B As Defense Tech Startups Shatter Funding Re</a></td><td><span class='badge badge-green'>$5B</span></td><td>🌐 全球</td><td>-</td></tr></tbody></table></div>
+
+  <div class="section">
+    <div class="section-title">⭐ 本週重點新聞</div>
+    <div class="card" style="padding: 0;">
+      <ul class="notable-list"><li><span class='idx'>1</span><span>🇹🇼 <a href='https://meet.bnext.com.tw/articles/view/53244' target='_blank'>a16z首個海外辦公室選東京！千億美元創投押注日本AI與防衛科技</a></span></li><li><span class='idx'>2</span><span>🇨🇳 <a href='https://36kr.com/p/3709756082466949?f=rss' target='_blank'>理想新L9上市72小时：老车主复购占大头，仍需从“家庭”破圈</a></span></li><li><span class='idx'>3</span><span>🇨🇳 <a href='https://36kr.com/p/3816109626138119?f=rss' target='_blank'>氪星晚报 ｜SpaceX即将成为马斯克旗下第二家上市公司；京东、洋河集团等在宿迁成立新动能股权投资基金，出资额10亿</a></span></li><li><span class='idx'>4</span><span>🇨🇳 <a href='https://news.google.com/rss/articles/CBMivwJBVV95cUxQdWdaMWhOVFFULUlDSDIwby1JRENwaWllZjNtSzNZM1AwejB5cGt0RXVybmpqUmJ3V3hTN1Zmdy1qTjNvMmFDVzhicU1pTmthWkhnMk9LSEZTbjhIZlhYMmw1WWhGLTB3SG5kWUtDeGlYTk1oaTZGQ2xNLXRQcjNYRDRXZDc4dFpRaW9jZFJPQmF1Z0h3SlNLWGlQaUtBZkpDVDNDUVRBTFlBWGN2b1Axb1pOZGk3VlZOb3dGUzRyNWdlSmtMdXl2RjRzV20wTnJ6TVpvMUxUWkdfUjQ3OEhYYWd0TVliWWRSQ24ycWdWZmU1RzQ4bG1hWk1yN01vbE9xNkNId2N4YlNJRzZ0Xzg2NGd5ejJMMG8zbV9QMnlsV1dHMm1uamxWZGc0WGNBY1hOeU5wZktWVDlVXzNSLTdv?oc=5' target='_blank'>硬科技独角兽，IPO新进展，参股公司曝光！“摘星脱帽”潮来了，潜力股出炉 - 新浪财经</a></span></li><li><span class='idx'>5</span><span>🇨🇳 <a href='https://news.google.com/rss/articles/CBMiekFVX3lxTE1VRlJON2N6QndnRUhNWGxUSUJUQl9UaVI3N01kTjBYeG5UZFgtMEtaM3h0dElyTDJJMUFqUVpuMXRiekhTeVJjNEh0b05sNE9oSkRyMGxxUWc2QlpaNVNIa0pscXdaSTJiWFpsdEhOSWtUenpDT0FVWjNB?oc=5' target='_blank'>长江存储启动IPO辅导，湖北国资赚大了 - 中国基金报</a></span></li><li><span class='idx'>6</span><span>🇨🇳 <a href='https://news.google.com/rss/articles/CBMi0wFBVV95cUxOOThkS0QxNWNmNmtqeDJTZGFCc1VnMkZfcjVyNlhYaUpFU1RVWHk2aS0xTEZGV0lyX2VzMW0wY2xsck4zbnRtRGQwWXVXZFFNU0dIa1QybmQ5REEyTjVMSFBTVGxINEw4dUVOdmVqenVVam96WV9rMkRrX0x3WGZ0QmZJUzUwM0VmV3BaN0pBZWZqaWV1VGhfaFRLc21Rc0ZiUHc0NE45X3BQY3hMa3Q1eURTb1hQMjljMkNweXNUS2lHV3hDaUdhclRjYkJ4c3BXTTlB?oc=5' target='_blank'>195亿，北京明星独角兽要IPO了 - 新浪网</a></span></li><li><span class='idx'>7</span><span>🇨🇳 <a href='https://news.google.com/rss/articles/CBMiREFVX3lxTE1IUzRHMmlpNTJaajZfbWJURFZLZlBsMFFvUlpDNDVMZVJucVR1S2hGaUtocFhrLXJGUUlRdndCcXNEeENa?oc=5' target='_blank'>中国存储芯片制造商长江存储启动IPO辅导 - OR新媒体</a></span></li><li><span class='idx'>8</span><span>🌐 <a href='https://techcrunch.com/2026/05/16/marketing-operating-system-nectar-social-raises-30m-series-a-in-round-led-by-menlo/' target='_blank'>Marketing operating system Nectar Social raises $30M Series A led by Menlo</a></span></li></ul>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📰 來源活躍度</div>
+    <table>
+      <thead><tr><th>媒體</th><th>文章數</th></tr></thead>
+      <tbody><tr><td>36氪</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:100%'></div></div><strong style='min-width:30px;text-align:right'>48</strong></div></td></tr><tr><td>TechCrunch Startups</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:33%'></div></div><strong style='min-width:30px;text-align:right'>16</strong></div></td></tr><tr><td>Crunchbase News</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:21%'></div></div><strong style='min-width:30px;text-align:right'>10</strong></div></td></tr><tr><td>中國科技 Google News</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:10%'></div></div><strong style='min-width:30px;text-align:right'>5</strong></div></td></tr><tr><td>VentureBeat</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:10%'></div></div><strong style='min-width:30px;text-align:right'>5</strong></div></td></tr><tr><td>Meet 創業小聚</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:6%'></div></div><strong style='min-width:30px;text-align:right'>3</strong></div></td></tr><tr><td>TechCrunch TW RSS</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:2%'></div></div><strong style='min-width:30px;text-align:right'>1</strong></div></td></tr><tr><td>中國新創 Google News</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:2%'></div></div><strong style='min-width:30px;text-align:right'>1</strong></div></td></tr><tr><td>全球新創 Google News</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:2%'></div></div><strong style='min-width:30px;text-align:right'>1</strong></div></td></tr><tr><td>全球科技 Google News</td><td><div style='display:flex;align-items:center;gap:10px'><div class='bar-wrap' style='flex:1'><div class='bar-fill' style='width:2%'></div></div><strong style='min-width:30px;text-align:right'>1</strong></div></td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="footer">報告產生時間: 2026-05-20 08:02:06 &nbsp;·&nbsp; Powered by Qwen 2.5 + Claude</div>
+</div>
+</body>
+</html>
