@@ -383,6 +383,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>新創情報周報 {week}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;800&display=swap" rel="stylesheet">
 <style>
   :root {{
     --bg: #0d1117; --card: #161b22; --border: #30363d;
@@ -391,7 +393,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     --purple: #bc8cff; --cyan: #79c0ff;
   }}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{ background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', sans-serif; padding: 24px; }}
+  body {{ background: var(--bg); color: var(--text); font-family: 'Noto Sans TC', -apple-system, 'Segoe UI', sans-serif; padding: 24px; }}
   .container {{ max-width: 1100px; margin: 0 auto; }}
   .header {{ text-align: center; padding: 40px 0 30px; border-bottom: 1px solid var(--border); margin-bottom: 30px; }}
   .header h1 {{ font-size: 2.4rem; font-weight: 800; background: linear-gradient(135deg, #58a6ff, #bc8cff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}

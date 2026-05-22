@@ -5,3 +5,4 @@ google-auth==2.37.0
 google-cloud-firestore==2.19.0
 python-dotenv==1.0.1
 rich
+weasyprint
