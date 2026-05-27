@@ -641,25 +641,49 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
 
 MIN_DISPLAY_GROUP_FIT = 1.8   # 低於此集團適配度的文章不顯示在報告中
 
+# 每個地區的顯示上下限
+REGION_DISPLAY_MAX = {"台灣": 20, "中國": 15, "東南亞": 10, "全球": 20}
+REGION_DISPLAY_MIN = {"台灣": 10, "中國": 10, "東南亞":  5, "全球": 10}
+
+# 東南亞頁面排除這些來源（實際報導中國/台灣內容，但被標記為東南亞）
+_SEA_EXCLUDE_SOURCES = {"technode", "cn_google", "cn_google2", "36kr", "lieyunwang",
+                        "bnext", "meet", "tc_tw", "gn_tw1"}
+
+
 def _make_region_page(region: str, scored_map: dict) -> str:
     """Build a page from Firebase scored docs for this region only."""
     all_docs = [d for d in scored_map.values() if d.get("region") == region]
 
-    # 顯示門檻：集團適配度 >= MIN_DISPLAY_GROUP_FIT
-    group_fit = lambda d: d.get("groupFitScore") or d.get("hotaiFitScore") or 0
+    # 東南亞：排除台灣/中國來源的文章
+    if region == "東南亞":
+        all_docs = [d for d in all_docs
+                    if d.get("sourceId", "") not in _SEA_EXCLUDE_SOURCES]
+
+    group_fit   = lambda d: d.get("groupFitScore") or d.get("hotaiFitScore") or 0
+    has_funding = lambda d: bool(d.get("stage") or d.get("fundingAmountRaw"))
+    max_count   = REGION_DISPLAY_MAX.get(region, 20)
+    min_count   = REGION_DISPLAY_MIN.get(region, 5)
+
+    # 門檻過濾
     docs = [d for d in all_docs if group_fit(d) >= MIN_DISPLAY_GROUP_FIT]
 
-    # 排序：有明確融資輪次或金額的優先，再按集團適配度降序
-    has_funding = lambda d: bool(d.get("stage") or d.get("fundingAmountRaw"))
-    docs = sorted(docs, key=lambda d: (has_funding(d), group_fit(d)), reverse=True)
+    # 若過濾後低於下限，放寬門檻補到下限數量
+    if len(docs) < min_count:
+        extra = sorted(
+            [d for d in all_docs if d not in docs],
+            key=group_fit, reverse=True
+        )
+        docs = docs + extra[:max(0, min_count - len(docs))]
 
-    filtered_out = len(all_docs) - len(docs)
+    # 排序：有融資的優先，再按集團適配度降序；最多取上限
+    docs = sorted(docs, key=lambda d: (has_funding(d), group_fit(d)), reverse=True)[:max_count]
+
+    filtered_out = len([d for d in scored_map.values()
+                        if d.get("region") == region]) - len(docs)
 
     if not docs:
         reason = (
-            f"本週尚無符合門檻（集團適配度 ≥ {MIN_DISPLAY_GROUP_FIT}）的已評分文章"
-            if all_docs else
-            "本週尚無已評分文章（請先執行 python main.py 完整流程）"
+            f"本週尚無已評分文章（請先執行 python main.py 完整流程）"
         )
         return (f"<div class='region-page'>"
                 f"<div class='region-header'><h2>{_html.escape(region)} 新創投資情報</h2>"
@@ -668,9 +692,11 @@ def _make_region_page(region: str, scored_map: dict) -> str:
     rows_html = ""
     for i, doc in enumerate(docs, 1):
         url       = _html.escape(doc.get("sourceUrl") or "")
-        # ── 新聞標題（優先用 newsTitle，舊資料 fallback 到 companyName）──
+        # ── 新聞標題：優先用原始新聞標題，舊資料（無 newsTitle）fallback 到公司名 ──
+        _raw_title = doc.get("newsTitle") or ""
+        _has_real_title = bool(_raw_title and _raw_title != doc.get("companyName", ""))
         news_title = _html.escape(
-            (doc.get("newsTitle") or doc.get("companyName") or doc.get("companyNameEn") or "—")[:100]
+            (_raw_title or doc.get("companyName") or doc.get("companyNameEn") or "—")[:120]
         )
         company   = _html.escape(doc.get("companyName") or doc.get("companyNameEn") or "—")
         name_en   = _html.escape(doc.get("companyNameEn") or "")
@@ -684,10 +710,16 @@ def _make_region_page(region: str, scored_map: dict) -> str:
         fit       = doc.get("fitScore")
         ml        = doc.get("mlScore")
 
-        # 新聞標題欄：帶超連結
+        # 新聞標題欄：有真實標題用藍色粗體，舊資料（公司名 fallback）用灰色斜體
+        if _has_real_title:
+            title_style = "color:#1a5cb5;font-weight:600"
+            title_display = news_title
+        else:
+            title_style = "color:#8a9ab5;font-style:italic"
+            title_display = news_title + " ⟨待更新⟩"
         title_cell = (
-            f"<a href='{url}' target='_blank' style='color:#1a5cb5;font-weight:600'>{news_title}</a>"
-            if url else f"<strong>{news_title}</strong>"
+            f"<a href='{url}' target='_blank' style='{title_style}'>{title_display}</a>"
+            if url else f"<span style='{title_style}'>{title_display}</span>"
         )
 
         # 公司名稱欄
