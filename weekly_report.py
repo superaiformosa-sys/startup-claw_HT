@@ -769,6 +769,123 @@ def _make_region_page(region: str, scored_map: dict) -> str:
 </div>"""
 
 
+def _make_scoring_legend() -> str:
+    """在 HTML 報告最後加上三個評分的計算基準說明。"""
+    from config import FIT_KEYWORDS
+
+    # 12 大業務版圖 → 中文對應
+    vertical_names = {
+        "AutoRetail":        "① 汽車代理經銷（Toyota/Lexus）",
+        "CommercialVehicle": "② ③ 商用車（HINO 卡車/巴士）",
+        "EV_Charging":       "④ 充電/能源（EVRun/氫能）",
+        "AutoFinance":       "⑤ 金融（和潤企業/車貸）",
+        "CarRental_Fleet":   "⑥ 租車/車隊（和運/iRent）",
+        "AutoProduct":       "⑧ 車用產品（車美仕/ADAS）",
+        "VehicleBody":       "⑨ 車體製造（和泰巴士）",
+        "InsurTech":         "⑩ 產險科技（和泰產險）",
+        "IndustrialRobot":   "⑪ 倉儲機器人（TMHT叉車/AGV）",
+        "MaaS_Mobility":     "⑫ MaaS（yoxi/去趣/和泰聯網）",
+        "HVAC_Energy":       "⑬ 空調（大金 Daikin）",
+        "AI_DataPlatform":   "AI 數位平台（橫跨各業務）",
+    }
+
+    kw_rows = ""
+    for cat, kws in FIT_KEYWORDS.items():
+        label = vertical_names.get(cat, cat)
+        kw_sample = " &nbsp;·&nbsp; ".join(_html.escape(k) for k in kws[:6])
+        if len(kws) > 6:
+            kw_sample += f" &nbsp;·&nbsp; <em>+{len(kws)-6} 更多</em>"
+        kw_rows += (
+            f"<tr><td style='white-space:nowrap;font-weight:600;color:#1a3a6e'>{label}</td>"
+            f"<td style='color:#4a5a7a;font-size:.8rem'>{kw_sample}</td></tr>"
+        )
+
+    return f"""<div class='page' style='margin-top:20px'>
+  <div class='region-header'>
+    <h2>📊 評分基準說明</h2>
+    <div class='sub'>三個維度的定義與計算方式</div>
+  </div>
+
+  <div class='section'>
+    <div class='section-title'>評分維度定義</div>
+    <table class='dt'>
+      <thead><tr>
+        <th style='width:15%'>評分欄位</th>
+        <th style='width:30%'>定義</th>
+        <th style='width:30%'>計算方式</th>
+        <th style='width:25%'>分數區間說明</th>
+      </tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>集團適配度</strong><br><small style='color:#7a8aaa'>groupFitScore</small></td>
+          <td>與和泰集團 13 大業務版圖的策略契合程度</td>
+          <td>
+            <span class='badge badge-orange'>40%</span> Qwen 大模型語意評分（hotaiFitScore）<br>
+            <span class='badge badge-blue'>40%</span> 業務關鍵字 ML 覆蓋率（mlScore）<br>
+            <span class='badge badge-green'>20%</span> 地區 / 輪次商業規則加分
+          </td>
+          <td>
+            <span class='score-hi'>7–10</span> 高度契合，建議優先關注<br>
+            <span class='score-mid'>4–6.9</span> 中度相關，可觀察<br>
+            <span class='score-lo'>0–3.9</span> 低相關
+          </td>
+        </tr>
+        <tr>
+          <td><strong>新創推薦度</strong><br><small style='color:#7a8aaa'>startupScore</small></td>
+          <td>新創公司本身的投資價值與新聞可信度</td>
+          <td>
+            <span class='badge badge-orange'>40%</span> Qwen 新聞完整性（relevanceScore）<br>
+            <span class='badge badge-blue'>25%</span> 融資金額規模<br>
+            <span class='badge badge-green'>20%</span> 輪次成熟度<br>
+            <span class='badge badge-orange'>15%</span> 投資人資訊品質
+          </td>
+          <td>
+            <span class='score-hi'>7–10</span> 具體融資輪次 + 金額 + 知名投資人<br>
+            <span class='score-mid'>4–6.9</span> 部分資訊確認<br>
+            <span class='score-lo'>0–3.9</span> 資訊不完整
+          </td>
+        </tr>
+        <tr>
+          <td><strong>關鍵字分數</strong><br><small style='color:#7a8aaa'>mlScore</small></td>
+          <td>純機器學習關鍵字命中率，不依賴 AI 判斷</td>
+          <td>
+            掃描 12 大業務版圖的 FIT_KEYWORDS 關鍵字<br>
+            每個類別命中 → 加分，上限 10 分<br>
+            <em>公式：min(命中類別數 × 命中密度 / 4 × 10, 10)</em>
+          </td>
+          <td>
+            可用來驗證 Qwen 評分是否合理<br>
+            若 mlScore 高但 groupFitScore 低 → 可能有誤判
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class='section'>
+    <div class='section-title'>12 大業務版圖關鍵字清單（FIT_KEYWORDS）</div>
+    <p style='font-size:.8rem;color:#7a8aaa;margin-bottom:8px'>
+      以下關鍵字用於計算 <strong>關鍵字分數（mlScore）</strong>，
+      也作為 <strong>集團適配度（groupFitScore）</strong> 的 40% ML 分數依據。
+    </p>
+    <table class='dt'>
+      <thead><tr><th>業務版圖</th><th>關鍵字（每類取前 6 個顯示）</th></tr></thead>
+      <tbody>{kw_rows}</tbody>
+    </table>
+  </div>
+
+  <div class='section' style='font-size:.78rem;color:#7a8aaa;border-top:1px solid #eef0f6;padding-top:12px'>
+    <strong>摘要語言規則：</strong>
+    台灣・中國地區的新聞摘要以繁體中文生成；東南亞・全球地區以英文生成。<br>
+    <strong>顯示門檻：</strong>集團適配度 ≥ {MIN_DISPLAY_GROUP_FIT} 才顯示於各地區報告中。
+    顯示數量上限：台灣 {REGION_DISPLAY_MAX['台灣']}・中國 {REGION_DISPLAY_MAX['中國']}・
+    東南亞 {REGION_DISPLAY_MAX['東南亞']}・全球 {REGION_DISPLAY_MAX['全球']}。<br>
+    <strong>LLM：</strong>Qwen 2.5 7B（本地 Ollama）&nbsp;·&nbsp;
+    <strong>報告產生：</strong>{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
+  </div>
+</div>"""
+
+
 def render_html(tab_name: str, rows: list[dict], stats: dict,
                 scored_map: dict | None = None) -> str:
     if scored_map is None:
@@ -786,6 +903,7 @@ def render_html(tab_name: str, rows: list[dict], stats: dict,
     pages   = [summary]
     for region in _REGION_ORDER:
         pages.append(_make_region_page(region, scored_map))
+    pages.append(_make_scoring_legend())
 
     body = "\n".join(pages)
     return f"""<!DOCTYPE html>

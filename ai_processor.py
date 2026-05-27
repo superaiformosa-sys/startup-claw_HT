@@ -303,15 +303,22 @@ def build_extract_prompt(title: str, summary: str, url: str, prefilled: dict) ->
     hint_text = ("Known info: " + ", ".join(hints) + "\n") if hints else ""
 
     is_chinese = any("一" <= c <= "鿿" for c in title)
-    summary_ex = "公司本週完成Pre-A融資，專注AI數位員工平台" if is_chinese else "company raised $5M for enterprise AI platform"
+    desc_ex    = "AI驅動的企業數位員工平台，專注自動化解決方案。" if is_chinese else "AI-powered digital employee platform for enterprise automation."
+    summary_ex = "公司本週完成Pre-A融資，專注AI數位員工平台。" if is_chinese else "company raised $5M for enterprise AI platform."
+    lang_instr = (
+        "IMPORTANT: Write 'description' and 'summary' in Traditional Chinese (繁體中文).\n"
+        if is_chinese else
+        "IMPORTANT: Write 'description' and 'summary' in English.\n"
+    )
 
     return (
         f"{hint_text}"
+        f"{lang_instr}"
         "Extract the main company from this startup/tech article. Output JSON only (no markdown, no explanation).\n"
         "If you cannot identify a specific real company name, output: {}\n\n"
         "Example output:\n"
         '{"companyName":"未來式智能","companyNameEn":"MindOS",'
-        '"description":"AI-powered digital employee platform for enterprise automation.",'
+        f'"description":"{desc_ex}",'
         f'"summary":"{summary_ex}",'
         '"industry":["AI","SaaS"],'
         '"stage":"Pre-A","fundingAmountRaw":"數百萬美元",'
@@ -345,10 +352,17 @@ def build_classify_and_extract_prompt(title: str, summary: str, prefilled: dict)
     hint_text = ("Known info: " + ", ".join(hints) + "\n") if hints else ""
 
     is_chinese = any("一" <= c <= "鿿" for c in title)
-    summary_ex = "公司本週完成Pre-A融資，專注AI數位員工平台" if is_chinese else "company raised $5M for enterprise AI platform"
+    desc_ex    = "AI驅動的企業數位員工平台，專注自動化解決方案。" if is_chinese else "AI-powered digital employee platform for enterprise automation."
+    summary_ex = "公司本週完成Pre-A融資，專注AI數位員工平台。" if is_chinese else "company raised $5M for enterprise AI platform."
+    lang_instr = (
+        "IMPORTANT: Write 'description' and 'summary' in Traditional Chinese (繁體中文).\n"
+        if is_chinese else
+        "IMPORTANT: Write 'description' and 'summary' in English.\n"
+    )
 
     return (
         f"{hint_text}"
+        f"{lang_instr}"
         "Classify and extract. Is this article about a startup, innovative SME, or tech company?\n"
         "INCLUDE: company funding, product launches, founder profiles, acquisitions, accelerator news.\n"
         "EXCLUDE: stock market data, government policy, macroeconomics, large public corps with no startup angle.\n\n"
@@ -357,7 +371,7 @@ def build_classify_and_extract_prompt(title: str, summary: str, prefilled: dict)
         "If IS a startup → extract the main company. Output JSON only (no markdown, no explanation).\n"
         "Example output:\n"
         '{"isStartup":true,"companyName":"未來式智能","companyNameEn":"MindOS",'
-        '"description":"AI-powered digital employee platform for enterprise automation.",'
+        f'"description":"{desc_ex}",'
         f'"summary":"{summary_ex}",'
         '"industry":["AI","SaaS"],'
         '"stage":"Pre-A","fundingAmountRaw":"數百萬美元",'
