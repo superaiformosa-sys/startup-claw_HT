@@ -399,16 +399,17 @@ def render_terminal(tab_name: str, rows: list[dict], stats: dict):
         hotai_table.add_column("公司",         min_width=16)
         hotai_table.add_column("產業",         min_width=16)
         hotai_table.add_column("輪次",         min_width=8)
-        hotai_table.add_column("和泰適配",     justify="center", min_width=9)
-        hotai_table.add_column("新聞品質",     justify="center", min_width=9)
-        hotai_table.add_column("ML分",        justify="center", min_width=7)
+        hotai_table.add_column("集團適配度",   justify="center", min_width=10)
+        hotai_table.add_column("新創推薦度",   justify="center", min_width=10)
+        hotai_table.add_column("關鍵字",      justify="center", min_width=7)
         hotai_table.add_column("地區",         min_width=8)
         for i, doc in enumerate(stats["hotai_top"], 1):
             name     = doc.get("companyName") or doc.get("companyNameEn") or "—"
             industry = ", ".join((doc.get("industry") or [])[:2]) or "—"
             stage    = doc.get("stage") or "—"
-            hotai    = doc.get("hotaiFitScore")
-            fit      = doc.get("fitScore")
+            # 新欄位優先，fallback 舊欄位
+            hotai    = doc.get("groupFitScore") or doc.get("hotaiFitScore")
+            fit      = doc.get("startupScore")  or doc.get("fitScore")
             ml       = doc.get("mlScore")
             region   = doc.get("region", "—")
             def score_color(v):
@@ -561,8 +562,9 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
             url     = _html.escape(doc.get("sourceUrl") or "")
             region  = _html.escape(doc.get("region") or "—")
             tags    = _html.escape(", ".join(doc.get("fitTags") or []))
-            hotai   = doc.get("hotaiFitScore")
-            fit     = doc.get("fitScore")
+            # 新欄位優先，fallback 舊欄位（向後相容舊 Firebase 文件）
+            hotai   = doc.get("groupFitScore") or doc.get("hotaiFitScore")
+            fit     = doc.get("startupScore")  or doc.get("fitScore")
             ml      = doc.get("mlScore")
             name_link = f"<a href='{url}' target='_blank'>{name}</a>" if url else name
             name_cell = name_link + (f"<br><small style='color:#7a8aaa'>{name_en}</small>" if name_en else "")
@@ -580,10 +582,13 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
         hotai_ranking = f"""
 <div class='section'>
   <div class='section-title'>和泰集團適配度排行 Top 10</div>
-  <div class='hotai-note'>評分公式：25% ML關鍵字 + 50% Qwen語意 + 25% 業務規則（地區/輪次/業務命中）</div>
+  <div class='hotai-note'>
+    <strong>集團適配度</strong>：40% Qwen語意 + 40% 業務關鍵字 + 20% 地區/輪次規則 &nbsp;｜&nbsp;
+    <strong>新創推薦度</strong>：40% Qwen新聞可信度 + 25% 融資金額 + 20% 輪次成熟度 + 15% 投資人/描述品質
+  </div>
   <table class='dt'><thead><tr>
     <th>#</th><th>公司</th><th>產業</th><th>輪次</th>
-    <th>和泰適配</th><th>新聞品質</th><th>ML</th><th>地區</th><th>業務標籤</th>
+    <th>集團適配度</th><th>新創推薦度</th><th>關鍵字</th><th>地區</th><th>業務標籤</th>
   </tr></thead><tbody>{rows_h}</tbody></table>
 </div>"""
 
@@ -648,34 +653,44 @@ def _make_region_page(region: str, scored_map: dict) -> str:
 
     rows_html = ""
     for i, doc in enumerate(docs, 1):
-        url      = _html.escape(doc.get("sourceUrl") or "")
-        company  = _html.escape(doc.get("companyName") or doc.get("companyNameEn") or "—")
-        name_en  = _html.escape(doc.get("companyNameEn") or "")
-        industry = _html.escape(", ".join((doc.get("industry") or [])[:2]) or "—")
-        stage    = _html.escape(doc.get("stage") or "—")
-        summary  = _html.escape((doc.get("summary") or doc.get("description") or "")[:120])
-        investors= _html.escape(", ".join((doc.get("investors") or [])[:3]))
-        funding  = _html.escape(doc.get("fundingAmountRaw") or "")
-        tags     = _html.escape(", ".join((doc.get("fitTags") or [])[:3]))
-        extracted= (doc.get("extractedAt") or "")[:10]
-        hotai    = doc.get("hotaiFitScore")
-        fit      = doc.get("fitScore")
-        ml       = doc.get("mlScore")
+        url       = _html.escape(doc.get("sourceUrl") or "")
+        # ── 新聞標題（優先用 newsTitle，舊資料 fallback 到 companyName）──
+        news_title = _html.escape(
+            (doc.get("newsTitle") or doc.get("companyName") or doc.get("companyNameEn") or "—")[:100]
+        )
+        company   = _html.escape(doc.get("companyName") or doc.get("companyNameEn") or "—")
+        name_en   = _html.escape(doc.get("companyNameEn") or "")
+        industry  = _html.escape(", ".join((doc.get("industry") or [])[:2]) or "—")
+        stage     = _html.escape(doc.get("stage") or "—")
+        # ── AI 生成摘要（優先 description，再 summary）──
+        ai_summary = _html.escape((doc.get("description") or doc.get("summary") or "")[:200])
+        funding   = _html.escape(doc.get("fundingAmountRaw") or "")
+        extracted = (doc.get("extractedAt") or "")[:10]
+        hotai     = doc.get("hotaiFitScore")
+        fit       = doc.get("fitScore")
+        ml        = doc.get("mlScore")
 
-        company_cell = f"<a href='{url}' target='_blank'><strong>{company}</strong></a>" if url else f"<strong>{company}</strong>"
+        # 新聞標題欄：帶超連結
+        title_cell = (
+            f"<a href='{url}' target='_blank' style='color:#1a5cb5;font-weight:600'>{news_title}</a>"
+            if url else f"<strong>{news_title}</strong>"
+        )
+
+        # 公司名稱欄
+        company_cell = f"<strong>{company}</strong>"
         if name_en and name_en != company:
             company_cell += f"<br><small style='color:#7a8aaa'>{name_en}</small>"
-
-        stage_html   = f"<span class='badge badge-orange'>{stage}</span>" if stage != "—" else ""
-        funding_html = f"<span class='badge badge-green'>{funding}</span>" if funding else ""
+        stage_html   = f"<br><span class='badge badge-orange'>{stage}</span>" if stage != "—" else ""
+        funding_html = f" <span class='badge badge-green'>{funding}</span>" if funding else ""
+        company_cell += stage_html + funding_html
 
         rows_html += (
-            f"<tr><td class='idx'>{i}</td>"
-            f"<td>{company_cell}<br><small style='color:#5a6a8a'>{summary}</small></td>"
-            f"<td><span class='badge badge-blue'>{industry}</span><br>{stage_html} {funding_html}</td>"
-            f"<td style='color:#7a8aaa;font-size:.78rem'>{investors}</td>"
-            f"<td style='color:#7a8aaa;font-size:.78rem'>{tags}</td>"
-            f"<td style='color:#8a9ab5;white-space:nowrap'>{extracted}</td>"
+            f"<tr>"
+            f"<td class='idx'>{i}</td>"
+            f"<td>{title_cell}</td>"                                          # 新聞標題
+            f"<td><span class='badge badge-blue'>{industry}</span><br>{company_cell}</td>"  # 公司名稱
+            f"<td style='color:#4a5a7a;font-size:.81rem'>{ai_summary}</td>"  # AI 生成摘要
+            f"<td style='color:#8a9ab5;white-space:nowrap;font-size:.78rem'>{extracted}</td>"
             f"<td style='text-align:center'>{_score_badge(hotai)}</td>"
             f"<td style='text-align:center'>{_score_badge(fit)}</td>"
             f"<td style='text-align:center;color:#8a9ab5'>{'%.1f' % ml if ml is not None else '-'}</td>"
@@ -687,14 +702,17 @@ def _make_region_page(region: str, scored_map: dict) -> str:
     <h2>{_html.escape(region)} 新創投資情報</h2>
     <div class='sub'>AI 已評分 {len(docs)} 家新創 &nbsp;·&nbsp; 依和泰適配度排序</div>
   </div>
-  <div class='hotai-note'>評分公式：25% ML關鍵字 + 50% Qwen語意 + 25% 業務規則（地區/輪次/業務命中）</div>
+  <div class='hotai-note'>集團適配度：40% Qwen語意 + 40% 業務關鍵字 + 20% 地區/輪次規則</div>
   <table class='dt'>
     <thead><tr>
-      <th>#</th><th>公司 / 摘要</th><th>產業 / 輪次 / 金額</th>
-      <th>投資方</th><th>業務標籤</th><th>評分日期</th>
-      <th style='text-align:center'>和泰適配</th>
-      <th style='text-align:center'>新聞品質</th>
-      <th style='text-align:center'>ML</th>
+      <th>#</th>
+      <th>新聞標題</th>
+      <th>相關公司名稱 / 產業 / 輪次</th>
+      <th>AI 生成摘要</th>
+      <th>評分日期</th>
+      <th style='text-align:center'>集團適配度</th>
+      <th style='text-align:center'>新創推薦度</th>
+      <th style='text-align:center'>關鍵字</th>
     </tr></thead>
     <tbody>{rows_html}</tbody>
   </table>

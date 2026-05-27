@@ -21,6 +21,10 @@ TAIWAN_DOMAINS = ["meet.bnext", "bnext.com", "inside.com.tw", "technews.tw", "ne
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "qwen2.5:7b"
 
+# ── 和泰相關性最低門檻：Qwen 評分 < 此值的文章不寫入 Firebase ──
+# 調高此值可讓 Firebase 更乾淨；調低可保留較多邊緣文章
+HOTAI_MIN_FIT_SCORE = 1.5
+
 # ── 規則集 ──
 
 # 標題出現任一關鍵字 → 直接跳過（不送 Qwen）
@@ -77,8 +81,10 @@ _SCORED_TAB = "scored_results"
 _SCORED_HEADER = [
     "extractedAt", "companyName", "companyNameEn", "region", "stage",
     "fundingAmountRaw", "fundingAmountUSD", "industry",
-    "hotaiFitScore", "fitScore", "mlScore", "ruleScore", "qwenScore", "hotaiQwenScore",
-    "fitTags", "sourceUrl", "description", "summary",
+    "groupFitScore",   # 集團適配度（新）
+    "startupScore",    # 新創推薦度（新）
+    "mlScore", "ruleScore", "qwenGroupScore", "qwenRelScore",
+    "fitTags", "sourceUrl", "newsTitle", "description", "summary",
 ]
 
 def _get_or_create_scored_sheet(gc) -> gspread.Worksheet:
@@ -109,14 +115,15 @@ def mirror_to_sheets(result: dict) -> None:
             result.get("fundingAmountRaw", ""),
             result.get("fundingAmountUSD", ""),
             ", ".join(result.get("industry") or []),
-            result.get("hotaiFitScore", ""),
-            result.get("fitScore", ""),
+            result.get("groupFitScore", ""),    # 集團適配度
+            result.get("startupScore", ""),     # 新創推薦度
             result.get("mlScore", ""),
             result.get("ruleScore", ""),
-            result.get("qwenScore", ""),
-            result.get("hotaiQwenScore", ""),
+            result.get("qwenGroupScore", ""),
+            result.get("qwenRelScore", ""),
             ", ".join(result.get("fitTags") or []),
             result.get("sourceUrl", ""),
+            result.get("newsTitle", ""),
             result.get("description", "")[:200],
             result.get("summary", "")[:200],
         ]
@@ -575,17 +582,10 @@ def call_gemini(prompt: str) -> dict | None:
 
 # ── Scoring ──
 
-def calc_ml_score(result: dict) -> tuple[float, list[str]]:
+def _calc_keyword_score(result: dict) -> tuple[float, list[str]]:
     """
-    Feature-based ML score (0-10).
-
-    配分：
-      keyword 類別命中  0-4 pt  (每類最多 1pt，8 類上限 4pt)
-      融資金額信號      0-2 pt
-      輪次明確性        0-1 pt
-      投資人資料        0-1 pt
-      描述品質          0-1 pt
-      資料完整度        0-1 pt
+    FIT_KEYWORDS 關鍵字命中分（0-10）＋業務標籤，供 groupFitScore 使用。
+    原始命中 0-4pt → normalize 到 0-10。
     """
     combined = " ".join([
         result.get("description", ""),
@@ -593,55 +593,25 @@ def calc_ml_score(result: dict) -> tuple[float, list[str]]:
         " ".join(result.get("industry", [])),
         result.get("companyName", ""),
         result.get("companyNameEn", ""),
+        result.get("newsTitle", ""),
     ]).lower()
 
-    score = 0.0
+    kw_raw = 0.0
     tags: list[str] = []
-
-    # 1. Keyword category match (up to 4 pts)
-    kw_score = 0.0
     for cat, keywords in FIT_KEYWORDS.items():
         hits = sum(1 for kw in keywords if kw.lower() in combined)
         if hits:
-            kw_score += min(hits * 0.5, 1.0)
+            kw_raw += min(hits * 0.5, 1.0)
             tags.append(cat)
-    score += min(kw_score, 4.0)
+    # 0-4 raw → 0-10 normalized
+    kw_score = min(kw_raw / 4.0 * 10, 10.0)
+    return round(kw_score, 1), tags
 
-    # 2. Funding amount (up to 2 pts)
-    funding_usd = result.get("fundingAmountUSD") or 0
-    funding_raw = result.get("fundingAmountRaw") or ""
-    if funding_usd >= 50_000_000:
-        score += 2.0
-    elif funding_usd >= 10_000_000:
-        score += 1.5
-    elif funding_usd >= 1_000_000:
-        score += 1.0
-    elif funding_raw:
-        score += 0.5
 
-    # 3. Stage specificity (up to 1 pt)
-    stage_weights = {
-        "IPO": 1.0, "D輪": 0.9, "C輪": 0.8, "B輪": 0.7,
-        "A輪": 0.6, "Pre-A": 0.5, "天使輪": 0.4, "種子輪": 0.3,
-        "戰略投資": 0.5,
-    }
-    score += stage_weights.get(result.get("stage", ""), 0)
-
-    # 4. Investor data (up to 1 pt)
-    investors = result.get("investors") or []
-    if len(investors) >= 3:
-        score += 1.0
-    elif len(investors) >= 1:
-        score += 0.5
-
-    # 5. Description quality (up to 1 pt)
-    desc = result.get("description") or ""
-    if len(desc) >= 80:
-        score += 1.0
-    elif len(desc) >= 40:
-        score += 0.5
-
-    return min(round(score, 1), 10.0), tags
+# Backward-compat wrapper（舊呼叫方不受影響）
+def calc_ml_score(result: dict) -> tuple[float, list[str]]:
+    """舊介面保留：回傳關鍵字命中分（0-10）及業務標籤。"""
+    return _calc_keyword_score(result)
 
 
 _PREFERRED_STAGES   = {"A輪", "B輪", "C輪", "Pre-A", "戰略投資"}  # 和泰較可能投的輪次
@@ -669,60 +639,130 @@ def _business_rule_score(result: dict) -> float:
     elif stage in {"IPO", "D輪"}:
         score += 0.5
 
-    # 直接命中和泰核心業務詞
+    # 直接命中和泰核心業務詞（含品牌名）
     combined = " ".join([
         result.get("companyName", ""), result.get("description", ""),
         " ".join(result.get("industry", [])),
     ]).lower()
-    core_hits = ["mobility", "maas", "insurtech", "telematics", "forklift", "agv",
-                 "ev charging", "充電", "車險", "租車", "叉車", "倉儲", "daikin", "大金",
-                 "bus body", "巴士", "auto finance", "車貸"]
+    core_hits = [
+        # MaaS / Mobility
+        "mobility", "maas", "ride hailing", "叫車", "共乘", "yoxi", "irent",
+        # InsurTech / 車險
+        "insurtech", "telematics", "車險", "auto insurance",
+        # 工業機器人 / 倉儲
+        "forklift", "agv", "amr", "叉車", "倉儲", "tmht", "toyota material",
+        # EV 充電
+        "ev charging", "充電", "charging station",
+        # 空調
+        "daikin", "大金", "hvac",
+        # 車體 / 商用車
+        "bus body", "巴士", "hino", "日野",
+        # 金融 / 租車
+        "auto finance", "車貸", "租車", "car rental",
+        # 品牌直接命中（排名最高加分）
+        "toyota", "lexus",
+    ]
     if any(h in combined for h in core_hits):
         score += 2.0
     return min(score, 10.0)
 
 
-def calc_fit_score(result: dict) -> dict:
+def calc_scores(result: dict) -> dict:
     """
-    三分量混合評分：
-      fitScore     = 25% ML + 50% Qwen relevanceScore + 25% 業務規則（新聞品質 × 和泰業務）
-      hotaiFitScore = 25% ML + 50% Qwen hotaiFitScore + 25% 業務規則（和泰策略適配）
-    若 Qwen 未回傳對應欄位，補 ML score 填充。
+    兩維度評分系統：
+    ┌─────────────────┬───────────────────────────────────────────────────────┐
+    │ groupFitScore   │ 集團適配度（0-10）：與和泰13大業務版圖的契合程度      │
+    │ （集團適配度）  │ = 50% Qwen語意 + 30% FIT_KEYWORDS命中 + 20% 業務規則 │
+    ├─────────────────┼───────────────────────────────────────────────────────┤
+    │ startupScore    │ 新創推薦度（0-10）：新創本身的品質與投資關注度        │
+    │ （新創推薦度）  │ = 40% Qwen新聞可信度 + 25% 融資金額                  │
+    │                 │   + 20% 輪次成熟度 + 15% 投資人/描述品質             │
+    └─────────────────┴───────────────────────────────────────────────────────┘
+    同時保留 hotaiFitScore / fitScore 作為 backward-compat alias。
     """
-    ml_score, tags = calc_ml_score(result)
-    rule_score = _business_rule_score(result)
+    kw_score, tags = _calc_keyword_score(result)
+    rule_score     = _business_rule_score(result)
 
-    def _parse_qwen(field: str) -> float | None:
+    def _qwen(field: str) -> float | None:
         try:
-            raw = result.get(field)
-            if raw is not None:
-                return max(0.0, min(10.0, float(raw)))
+            v = result.get(field)
+            if v is not None:
+                return max(0.0, min(10.0, float(v)))
         except (TypeError, ValueError):
             pass
         return None
 
-    qwen_score = _parse_qwen("relevanceScore")
-    hotai_qwen = _parse_qwen("hotaiFitScore")
+    qwen_hotai = _qwen("hotaiFitScore")   # Qwen 原始：對和泰策略的語意判斷
+    qwen_rel   = _qwen("relevanceScore")  # Qwen 原始：新聞可信度/品質
 
-    if qwen_score is not None:
-        final = round(0.25 * ml_score + 0.50 * qwen_score + 0.25 * rule_score, 1)
+    # ── 集團適配度 (groupFitScore) ──
+    # 40% Qwen hotaiFit + 40% 關鍵字命中 + 20% 業務規則
+    if qwen_hotai is not None:
+        group_fit = 0.40 * qwen_hotai + 0.40 * kw_score + 0.20 * rule_score
     else:
-        final = round(0.50 * ml_score + 0.50 * rule_score, 1)
+        group_fit = 0.60 * kw_score + 0.40 * rule_score
 
-    if hotai_qwen is not None:
-        hotai_final = round(0.25 * ml_score + 0.50 * hotai_qwen + 0.25 * rule_score, 1)
+    # ── 新創推薦度 (startupScore) ──
+    # 各子分數先 normalize 到 0-10，再加權
+
+    # A. 融資金額 (0-10)
+    funding_usd = result.get("fundingAmountUSD") or 0
+    funding_raw = result.get("fundingAmountRaw") or ""
+    if funding_usd >= 100_000_000:   fund_sc = 10.0
+    elif funding_usd >= 50_000_000:  fund_sc = 8.0
+    elif funding_usd >= 10_000_000:  fund_sc = 6.0
+    elif funding_usd >= 1_000_000:   fund_sc = 4.0
+    elif funding_raw:                fund_sc = 2.0
+    else:                            fund_sc = 0.0
+
+    # B. 融資輪次成熟度 (0-10)
+    stage_sc = {
+        "IPO": 10.0, "D輪": 9.0, "C輪": 8.0, "B輪": 7.0,
+        "A輪": 6.0,  "Pre-A": 5.0, "天使輪": 4.0, "種子輪": 3.0,
+        "戰略投資": 6.0,
+    }.get(result.get("stage", ""), 1.0)
+
+    # C. 投資人資料 + 描述品質 (0-10)
+    investors = result.get("investors") or []
+    desc      = result.get("description") or ""
+    quality   = 0.0
+    if len(investors) >= 3:  quality += 6.0
+    elif len(investors) >= 1: quality += 3.0
+    if len(desc) >= 80:      quality += 4.0
+    elif len(desc) >= 40:    quality += 2.0
+    quality = min(quality, 10.0)
+
+    # 40% Qwen + 25% 金額 + 20% 輪次 + 15% 品質
+    if qwen_rel is not None:
+        startup = 0.40 * qwen_rel + 0.25 * fund_sc + 0.20 * stage_sc + 0.15 * quality
     else:
-        hotai_final = round(0.50 * ml_score + 0.50 * rule_score, 1)
+        # Qwen 缺失時重新分配權重
+        startup = 0.40 * fund_sc + 0.35 * stage_sc + 0.25 * quality
+
+    clamp = lambda v: min(round(v, 1), 10.0)
 
     return {
-        "fitScore":       min(round(final, 1), 10.0),
+        "groupFitScore":  clamp(group_fit),      # 集團適配度（新）
+        "startupScore":   clamp(startup),         # 新創推薦度（新）
         "fitTags":        tags,
-        "mlScore":        ml_score,
-        "ruleScore":      rule_score,
-        "qwenScore":      qwen_score,
-        "hotaiFitScore":  min(round(hotai_final, 1), 10.0),
-        "hotaiQwenScore": hotai_qwen,
+        "mlScore":        kw_score,               # 關鍵字命中分（透明度備查）
+        "ruleScore":      round(rule_score, 1),   # 業務規則分（透明度備查）
+        "qwenGroupScore": qwen_hotai,             # Qwen 原始和泰判斷
+        "qwenRelScore":   qwen_rel,               # Qwen 原始新聞品質
+        # Backward-compat aliases（舊 Firebase 文件、舊 weekly_report 仍可讀）
+        "hotaiFitScore":  clamp(group_fit),
+        "fitScore":       clamp(startup),
     }
+
+
+# Backward-compat wrapper（舊呼叫方不受影響）
+def calc_fit_score(result: dict) -> dict:
+    """舊介面保留，內部呼叫 calc_scores。"""
+    d = calc_scores(result)
+    # 補舊欄位名
+    d["qwenScore"]      = d.get("qwenRelScore")
+    d["hotaiQwenScore"] = d.get("qwenGroupScore")
+    return d
 
 
 def normalize_funding(raw: str) -> int:
@@ -786,23 +826,38 @@ def _persist_startup(item: dict, result: dict, ws, col_ref: str, region: str) ->
     result["region"]           = region
     result["sourceId"]         = source
     result["sourceUrl"]        = url
+    result["newsTitle"]        = item.get("title", "")   # 原始新聞標題（供 HTML 報告顯示）
     result["extractedAt"]      = datetime.now(timezone.utc).isoformat()
     result["status"]           = "new"
     result["fundingAmountUSD"] = normalize_funding(result.get("fundingAmountRaw", ""))
-    fd = calc_fit_score(result)
+    fd = calc_scores(result)
 
     def _clamp(v: float) -> float:
         return max(0.0, min(10.0, v))
 
-    result["fitScore"]      = _clamp(fd["fitScore"])
-    result["fitTags"]       = fd["fitTags"]
-    result["mlScore"]       = _clamp(fd["mlScore"])
-    result["ruleScore"]     = _clamp(fd["ruleScore"])
-    result["hotaiFitScore"] = _clamp(fd["hotaiFitScore"])
-    if fd["qwenScore"] is not None:
-        result["qwenScore"] = _clamp(fd["qwenScore"])
-    if fd["hotaiQwenScore"] is not None:
-        result["hotaiQwenScore"] = _clamp(fd["hotaiQwenScore"])
+    # ── 主要兩維度分數 ──
+    result["groupFitScore"]  = _clamp(fd["groupFitScore"])   # 集團適配度
+    result["startupScore"]   = _clamp(fd["startupScore"])    # 新創推薦度
+    result["fitTags"]        = fd["fitTags"]
+    result["mlScore"]        = _clamp(fd["mlScore"])
+    result["ruleScore"]      = _clamp(fd["ruleScore"])
+    if fd["qwenGroupScore"] is not None:
+        result["qwenGroupScore"] = _clamp(fd["qwenGroupScore"])
+    if fd["qwenRelScore"] is not None:
+        result["qwenRelScore"] = _clamp(fd["qwenRelScore"])
+    # Backward-compat aliases（舊 weekly_report / 舊 Firebase 文件仍可讀）
+    result["hotaiFitScore"]  = result["groupFitScore"]
+    result["fitScore"]       = result["startupScore"]
+
+    # ── 和泰相關性過濾：集團適配度 < HOTAI_MIN_FIT_SCORE → 不寫入 Firebase ──
+    # groupFitScore 整合 Qwen 語意（50%）＋關鍵字命中（30%）＋業務規則（20%）
+    if result["groupFitScore"] < HOTAI_MIN_FIT_SCORE:
+        logger.info(
+            "   ⏭️  集團不相關 (groupFit=%.1f < %.1f): %s",
+            result["groupFitScore"], HOTAI_MIN_FIT_SCORE, company[:50]
+        )
+        ws.update_cell(item["row"], 7, "filtered")
+        return "skipped"
 
     doc_id = hashlib.md5(url.encode()).hexdigest()[:16]
     firestore_write(col_ref, result, doc_id=doc_id)

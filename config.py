@@ -66,6 +66,7 @@ FIT_KEYWORDS = {
     "AutoRetail": [
         "汽車經銷", "車輛銷售", "車款", "dealer", "dealership", "DMS", "CRM dealer",
         "車商管理", "試乘", "車展", "新車銷售", "售後服務", "car retail",
+        "toyota", "Toyota", "lexus", "Lexus", "和泰汽車", "和通汽車",   # 品牌/子公司
     ],
     # ② ③ 商用車（長源HINO、日本日野各公司）
     "CommercialVehicle": [
@@ -89,6 +90,7 @@ FIT_KEYWORDS = {
     "CarRental_Fleet": [
         "租車", "car rental", "車隊管理", "fleet management", "長租", "短租",
         "subscription car", "汽車訂閱", "共享汽車", "car sharing", "leasing platform",
+        "iRent", "和運",   # 和運旗下品牌
     ],
     # ⑧ 車用產品（車美仕Carmax、興聯科技、凱美士）
     "AutoProduct": [
@@ -112,6 +114,7 @@ FIT_KEYWORDS = {
         "叉車", "堆高機", "forklift", "AGV", "AMR", "倉儲自動化",
         "warehouse automation", "物料搬運", "material handling", "工業機器人",
         "industrial robot", "智慧倉儲", "smart warehouse", "WMS", "自動倉",
+        "TMHT", "Toyota Material", "toyota forklift", "toyota material handling",  # 和泰TMHT
     ],
     # ⑫ MaaS（yoxi、iRent、和泰聯網、去趣旅遊）
     "MaaS_Mobility": [
@@ -119,6 +122,7 @@ FIT_KEYWORDS = {
         "mobility service", "mobility as a service", "shared mobility",
         "旅遊規劃", "travel platform", "跨境旅遊", "trip planning",
         "和泰Pay", "points economy", "loyalty platform", "數位支付",
+        "和雲", "去趣", "和泰聯網",  # 子品牌補全
     ],
     # ⑬ 空調（和泰興業 — 大金Daikin台灣總代理）
     "HVAC_Energy": [
