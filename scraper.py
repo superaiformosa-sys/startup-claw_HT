@@ -54,6 +54,8 @@ SCOPES = [
 
 
 def get_sheets_client():
+    if not GOOGLE_CREDENTIALS_JSON:
+        raise EnvironmentError("GOOGLE_CREDENTIALS_JSON secret is not set or is empty.")
     creds_info = json.loads(GOOGLE_CREDENTIALS_JSON)
     creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
     return gspread.authorize(creds)
