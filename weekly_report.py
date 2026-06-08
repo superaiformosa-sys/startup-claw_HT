@@ -12,7 +12,7 @@ import json
 import logging
 import re
 import datetime
-from collections import Counter, defaultdict
+from collections import Counter
 from ai_processor import get_sheet
 from config import SOURCES
 
@@ -26,8 +26,6 @@ from rich.text import Text
 from rich.rule import Rule
 from rich import box
 from rich.align import Align
-from rich.layout import Layout
-from rich.padding import Padding
 
 console = Console(width=110)
 
@@ -704,9 +702,7 @@ def _make_region_page(region: str, scored_map: dict) -> str:
                         if d.get("region") == region]) - len(docs)
 
     if not docs:
-        reason = (
-            f"本週尚無已評分文章（請先執行 python main.py 完整流程）"
-        )
+        reason = "本週尚無已評分文章（請先執行 python main.py 完整流程）"
         return (f"<div class='region-page'>"
                 f"<div class='region-header'><h2>{_html.escape(region)} 新創投資情報</h2>"
                 f"<div class='sub'>{reason}</div></div></div>")
@@ -961,7 +957,7 @@ def main():
         rows = load_single_tab(tab_name)
     else:
         tab_name = "raw_" + datetime.date.today().strftime("%Y-%m-%d")
-        console.print(f"[grey50]載入本週所有 raw_* tabs...[/]")
+        console.print("[grey50]載入本週所有 raw_* tabs...[/]")
         try:
             rows = load_all_tabs()
             if not rows:

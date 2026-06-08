@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from difflib import SequenceMatcher
 import feedparser
-import requests
 import gspread
 from google.oauth2.service_account import Credentials
 import json

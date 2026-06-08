@@ -19,8 +19,6 @@ FIREBASE_PROJECT_ID     = _require_env("FIREBASE_PROJECT_ID")
 SHEETS_ID               = _require_env("SHEETS_ID")
 GOOGLE_CREDENTIALS_JSON = _require_env("GOOGLE_CREDENTIALS_JSON")
 
-FIRESTORE_BASE = f"https://firestore.googleapis.com/v1/projects/{FIREBASE_PROJECT_ID}/databases/(default)/documents"
-
 GEMINI_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent"
 
 MAX_ARTICLES_PER_SOURCE = 30

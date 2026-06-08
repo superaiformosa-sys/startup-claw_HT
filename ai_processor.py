@@ -221,7 +221,7 @@ def _call_ollama_raw(prompt: str, num_predict: int = 80) -> str:
         "stream": False,
         "options": {"temperature": 0.0, "num_predict": num_predict},
     }
-    resp = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=120)
+    resp = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=200)
     if resp.status_code != 200:
         raise RuntimeError(f"Ollama {resp.status_code}: {resp.text[:100]}")
     return resp.json().get("response", "")
@@ -423,7 +423,9 @@ def call_ollama(prompt: str) -> dict | None:
             "repeat_penalty": 1.1,
         },
     }
-    resp = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=180)
+    # Measured ~167s for a warm-model classify+extract call on this CPU-only host (~7 tok/s);
+    # 180s left almost no headroom and was tripping on cold-start / load spikes (see logs 2026-06-08).
+    resp = requests.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=300)
     if resp.status_code != 200:
         raise RuntimeError(f"Ollama {resp.status_code}: {resp.text[:100]}")
     return parse_response(resp.json().get("response", ""))

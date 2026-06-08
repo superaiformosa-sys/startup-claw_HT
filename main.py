@@ -5,7 +5,7 @@ import datetime
 import subprocess
 import requests
 from scraper import run_all_scrapers
-from ai_processor import process_raw_articles_by_region, get_sheet
+from ai_processor import process_raw_articles_by_region, OLLAMA_MODEL
 from weekly_report import load_all_tabs, analyze_rows, render_html
 from email_sender import send_weekly_report
 
@@ -42,6 +42,23 @@ def ensure_ollama_running(timeout: int = 30) -> bool:
     logger.error("Ollama failed to start within %ds", timeout)
     return False
 
+def warm_up_ollama_model(timeout: int = 280) -> None:
+    """Force the model into memory with a tiny throwaway generate call.
+    Without this, the first real classify+extract call pays both the
+    model-load cost AND inference cost inside the same request timeout —
+    that's what caused the timeouts in the 2026-06-08 run."""
+    try:
+        start = time.time()
+        requests.post(
+            f"{OLLAMA_URL}/api/generate",
+            json={"model": OLLAMA_MODEL, "prompt": "Hi", "stream": False,
+                  "options": {"num_predict": 1}},
+            timeout=timeout,
+        )
+        logger.info("Ollama model warmed up (%.1fs)", time.time() - start)
+    except Exception as e:
+        logger.warning("Ollama warm-up failed (will proceed anyway): %s", e)
+
 REGIONS = ["台灣", "中國", "東南亞", "全球"]
 
 def step1_scrape(tab_name=None):
@@ -58,6 +75,7 @@ def step2_ai(tab_name=None):
     if not ensure_ollama_running():
         logger.error("Step2 ABORT — Ollama could not be started")
         return
+    warm_up_ollama_model()
     if tab_name is None:
         tab_name = "raw_" + datetime.datetime.now().strftime("%Y-%m-%d")
     total_saved = total_errors = 0
