@@ -23,7 +23,9 @@ OLLAMA_MODEL = "qwen3:8b"
 
 # ── 和泰相關性最低門檻：Qwen 評分 < 此值的文章不寫入 Firebase ──
 # 調高此值可讓 Firebase 更乾淨；調低可保留較多邊緣文章
-HOTAI_MIN_FIT_SCORE = 1.5
+# groupFitScore 現在有 2.5 基準分（見 calc_scores），零訊號文章會落在剛好 2.5，
+# 3.0 這個門檻等於「至少要有一點 Qwen/關鍵字/業務規則訊號」才留下來。
+HOTAI_MIN_FIT_SCORE = 3.0
 
 # ── 規則集 ──
 
@@ -603,7 +605,10 @@ def call_gemini(prompt: str) -> dict | None:
 def _calc_keyword_score(result: dict) -> tuple[float, list[str]]:
     """
     FIT_KEYWORDS 關鍵字命中分（0-10）＋業務標籤，供 groupFitScore 使用。
-    原始命中 0-4pt → normalize 到 0-10。
+    原始命中 0-2pt → normalize 到 0-10：一篇文章通常只會扣中 1-2 個事業體分類
+    （少有文章橫跨 4 個以上分類），舊版除以 4.0 等於要求「命中範圍要廣」才能拿高分，
+    對單一分類命中很深（例如同時出現多個充電樁關鍵字）的文章反而不公平，
+    這裡改成命中 2 個分類就給滿分，獎勵「命中深度」而非「命中廣度」。
     """
     combined = " ".join([
         result.get("description", ""),
@@ -621,8 +626,8 @@ def _calc_keyword_score(result: dict) -> tuple[float, list[str]]:
         if hits:
             kw_raw += min(hits * 0.5, 1.0)
             tags.append(cat)
-    # 0-4 raw → 0-10 normalized
-    kw_score = min(kw_raw / 4.0 * 10, 10.0)
+    # 0-2 raw → 0-10 normalized
+    kw_score = min(kw_raw / 2.0 * 10, 10.0)
     return round(kw_score, 1), tags
 
 
@@ -690,12 +695,17 @@ def calc_scores(result: dict) -> dict:
     兩維度評分系統：
     ┌─────────────────┬───────────────────────────────────────────────────────┐
     │ groupFitScore   │ 集團適配度（0-10）：與和泰13大業務版圖的契合程度      │
-    │ （集團適配度）  │ = 50% Qwen語意 + 30% FIT_KEYWORDS命中 + 20% 業務規則 │
+    │ （集團適配度）  │ = 2.5（基準分）+ 40% Qwen語意 + 40% FIT_KEYWORDS命中 │
+    │                 │   + 20% 業務規則                                     │
     ├─────────────────┼───────────────────────────────────────────────────────┤
     │ startupScore    │ 新創推薦度（0-10）：新創本身的品質與投資關注度        │
     │ （新創推薦度）  │ = 40% Qwen新聞可信度 + 25% 融資金額                  │
     │                 │   + 20% 輪次成熟度 + 15% 投資人/描述品質             │
     └─────────────────┴───────────────────────────────────────────────────────┘
+    groupFitScore 的 2.5 基準分：完全零訊號的文章（Qwen判0分+無關鍵字命中+無業務規則加分）
+    以前會落到 0 分，讓整批文章看起來「全部都不合適」而失去參考價值；多數被留下來的文章
+    多少都跟新創/投資沾邊，2.5 分讓分數分布往中間靠、保留區間內的相對排序，
+    同時把 HOTAI_MIN_FIT_SCORE 拉到 3.0，讓真正零訊號的文章還是會被濾掉。
     同時保留 hotaiFitScore / fitScore 作為 backward-compat alias。
     """
     kw_score, tags = _calc_keyword_score(result)
@@ -714,11 +724,11 @@ def calc_scores(result: dict) -> dict:
     qwen_rel   = _qwen("relevanceScore")  # Qwen 原始：新聞可信度/品質
 
     # ── 集團適配度 (groupFitScore) ──
-    # 40% Qwen hotaiFit + 40% 關鍵字命中 + 20% 業務規則
+    # 2.5 基準分 + 40% Qwen hotaiFit + 40% 關鍵字命中 + 20% 業務規則
     if qwen_hotai is not None:
-        group_fit = 0.40 * qwen_hotai + 0.40 * kw_score + 0.20 * rule_score
+        group_fit = 2.5 + 0.40 * qwen_hotai + 0.40 * kw_score + 0.20 * rule_score
     else:
-        group_fit = 0.60 * kw_score + 0.40 * rule_score
+        group_fit = 2.5 + 0.60 * kw_score + 0.40 * rule_score
 
     # ── 新創推薦度 (startupScore) ──
     # 各子分數先 normalize 到 0-10，再加權

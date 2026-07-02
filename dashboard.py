@@ -238,7 +238,10 @@ footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top
     <div class="chart-card"><h3>融資輪次分佈</h3><div id="chartStage"></div></div>
   </div>
 
-  <div class="section-title">新創文章列表（依集團適配度排序）</div>
+  <div class="section-title">本週焦點摘要 Top 10（依集團適配度排序）</div>
+  <div class="card-list" id="summaryList"></div>
+
+  <div class="section-title" style="margin-top:24px;">完整文章列表（依集團適配度排序）</div>
   <div class="list-meta" id="listMeta"></div>
   <div class="card-list" id="cardList"></div>
 
@@ -255,7 +258,7 @@ const STAGE_ORDER = ["種子輪", "天使輪", "Pre-A", "A輪", "B輪", "C輪", 
 
 function escapeHtml(s) {
   const d = document.createElement("div");
-  d.innerText = s == null ? "" : String(s);
+  d.textContent = s == null ? "" : String(s);
   return d.innerHTML;
 }
 
@@ -278,10 +281,14 @@ function scoreBadgeHtml(v, label) {
 
 // ── Build filter chip lists from the data actually present ──
 const allRegions = REGION_ORDER.filter(r => DATA.some(d => d.region === r));
-// 事業體標籤：以資料中實際出現過的值為準（含少數舊版評分邏輯留下、不在 TAG_LABELS 裡的舊標籤），
-// 而非只列 config.py 目前定義的 12 類——這樣篩選 chip 跟下面的分佈圖才會顯示一致的標籤集合。
-const allTags = [...new Set(DATA.flatMap(d => d.tags || []))]
-  .sort((a, b) => (TAG_LABELS[a] ? 0 : 1) - (TAG_LABELS[b] ? 0 : 1));
+// 事業體標籤：一定列出 config.py 目前定義的 12 類（就算目前 0 篇命中也列出來，讓使用者
+// 看得到完整版圖，而不是只看到「目前剛好有資料」的少數幾類），命中數多的排前面；
+// 舊版評分邏輯留下、不在 TAG_LABELS 裡的舊標籤（如 "AI"/"SaaS"）排在最後，一樣可篩選。
+const tagCountsAll = {};
+DATA.forEach(d => (d.tags || []).forEach(t => tagCountsAll[t] = (tagCountsAll[t] || 0) + 1));
+const officialTags = Object.keys(TAG_LABELS).sort((a, b) => (tagCountsAll[b] || 0) - (tagCountsAll[a] || 0));
+const legacyTags = Object.keys(tagCountsAll).filter(t => !TAG_LABELS[t]).sort((a, b) => tagCountsAll[b] - tagCountsAll[a]);
+const allTags = [...officialTags, ...legacyTags];
 const industryCounts = {};
 DATA.forEach(d => (d.industry || []).forEach(i => industryCounts[i] = (industryCounts[i] || 0) + 1));
 const allIndustries = Object.keys(industryCounts).sort((a, b) => industryCounts[b] - industryCounts[a]).slice(0, 12);
@@ -407,7 +414,8 @@ function render() {
 
   // KPI tiles
   const total = filtered.length;
-  const avgFit = total ? (filtered.reduce((s, d) => s + (d.groupFit || 0), 0) / total) : 0;
+  const scored = filtered.filter(d => d.groupFit != null);
+  const avgFit = scored.length ? (scored.reduce((s, d) => s + d.groupFit, 0) / scored.length) : 0;
   const highFit = filtered.filter(d => (d.groupFit || 0) >= 7).length;
   // 只算 config.py 目前定義的 12 個正式事業體分類，不含舊版評分邏輯留下的標籤（如 "AI"/"SaaS"）
   const tagCoverage = new Set(filtered.flatMap(d => d.tags || []).filter(t => TAG_LABELS[t])).size;
@@ -435,39 +443,49 @@ function render() {
   filtered.forEach(d => { if (d.stage) stageCounts[d.stage] = (stageCounts[d.stage] || 0) + 1; });
   renderBarChart("chartStage", stageCounts, STAGE_ORDER);
 
-  // Article list
+  // Sorted once, shared by the Top 10 summary and the full list below it
+  const sorted = [...filtered].sort((a, b) => (b.groupFit || 0) - (a.groupFit || 0));
+
+  renderCardList("summaryList", sorted.slice(0, 10), "目前篩選範圍內沒有文章可摘要");
   document.getElementById("listMeta").textContent = `共 ${total} 篇符合篩選條件`;
-  const list = document.getElementById("cardList");
+  renderCardList("cardList", sorted, "沒有符合篩選條件的文章 — 試試放寬時間區間或篩選條件");
+}
+
+function articleCardHtml(d) {
+  const tagsHtml = (d.tags || []).map(t => `<span class="pill pill-tag">${escapeHtml(TAG_LABELS[t] || t)}</span>`).join("");
+  const industryHtml = (d.industry || []).map(i => `<span class="pill pill-industry">${escapeHtml(i)}</span>`).join("");
+  const funding = fmtFunding(d);
+  return `
+    <div class="top-row">
+      <div>
+        <span class="company">${escapeHtml(d.company)}${d.companyEn && d.companyEn !== d.company ? `<span class="en">${escapeHtml(d.companyEn)}</span>` : ""}</span>
+      </div>
+      <div>${scoreBadgeHtml(d.groupFit, "集團適配")} ${scoreBadgeHtml(d.startupScore, "新創推薦")}</div>
+    </div>
+    <a class="title-link" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(d.title || d.company)}</a>
+    <div class="desc">${escapeHtml(d.description || d.summary || "")}</div>
+    <div class="badge-row">
+      <span class="pill pill-region">${escapeHtml(d.region)}</span>
+      ${d.stage ? `<span class="pill pill-stage">${escapeHtml(d.stage)}</span>` : ""}
+      ${funding ? `<span class="pill pill-fund">${escapeHtml(funding)}</span>` : ""}
+      ${industryHtml}
+      ${tagsHtml || '<span class="pill pill-industry">無明確事業體對應</span>'}
+    </div>
+    <div style="color:var(--muted);font-size:0.72rem;margin-top:6px;">${escapeHtml(d.date)}</div>
+  `;
+}
+
+function renderCardList(containerId, records, emptyMessage) {
+  const list = document.getElementById(containerId);
   list.innerHTML = "";
-  if (total === 0) {
-    list.innerHTML = '<div class="empty-state">沒有符合篩選條件的文章 — 試試放寬時間區間或篩選條件</div>';
+  if (records.length === 0) {
+    list.innerHTML = `<div class="empty-state">${escapeHtml(emptyMessage)}</div>`;
     return;
   }
-  const sorted = [...filtered].sort((a, b) => (b.groupFit || 0) - (a.groupFit || 0));
-  sorted.forEach(d => {
+  records.forEach(d => {
     const card = document.createElement("div");
     card.className = "article-card";
-    const tagsHtml = (d.tags || []).map(t => `<span class="pill pill-tag">${escapeHtml(TAG_LABELS[t] || t)}</span>`).join("");
-    const industryHtml = (d.industry || []).map(i => `<span class="pill pill-industry">${escapeHtml(i)}</span>`).join("");
-    const funding = fmtFunding(d);
-    card.innerHTML = `
-      <div class="top-row">
-        <div>
-          <span class="company">${escapeHtml(d.company)}${d.companyEn ? `<span class="en">${escapeHtml(d.companyEn)}</span>` : ""}</span>
-        </div>
-        <div>${scoreBadgeHtml(d.groupFit, "集團適配")} ${scoreBadgeHtml(d.startupScore, "新創推薦")}</div>
-      </div>
-      <a class="title-link" href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(d.title || d.company)}</a>
-      <div class="desc">${escapeHtml(d.description || d.summary || "")}</div>
-      <div class="badge-row">
-        <span class="pill pill-region">${escapeHtml(d.region)}</span>
-        ${d.stage ? `<span class="pill pill-stage">${escapeHtml(d.stage)}</span>` : ""}
-        ${funding ? `<span class="pill pill-fund">${escapeHtml(funding)}</span>` : ""}
-        ${industryHtml}
-        ${tagsHtml || '<span class="pill pill-industry">無明確事業體對應</span>'}
-      </div>
-      <div style="color:var(--muted);font-size:0.72rem;margin-top:6px;">${escapeHtml(d.date)}</div>
-    `;
+    card.innerHTML = articleCardHtml(d);
     list.appendChild(card);
   });
 }

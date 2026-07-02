@@ -601,7 +601,7 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
 <div class='section'>
   <div class='section-title'>和泰集團適配度排行 Top 10</div>
   <div class='hotai-note'>
-    <strong>集團適配度</strong>：40% Qwen語意 + 40% 業務關鍵字 + 20% 地區/輪次規則 &nbsp;｜&nbsp;
+    <strong>集團適配度</strong>：2.5基準分 + 40% Qwen語意 + 40% 業務關鍵字 + 20% 地區/輪次規則 &nbsp;｜&nbsp;
     <strong>新創推薦度</strong>：40% Qwen新聞可信度 + 25% 融資金額 + 20% 輪次成熟度 + 15% 投資人/描述品質
   </div>
   <table class='dt' cellspacing='0'><thead><tr>
@@ -658,7 +658,7 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
 </div>"""
 
 
-MIN_DISPLAY_GROUP_FIT = 1.8   # 低於此集團適配度的文章不顯示在報告中
+MIN_DISPLAY_GROUP_FIT = 3.0   # 低於此集團適配度的文章不顯示在報告中（呼應 ai_processor.HOTAI_MIN_FIT_SCORE）
 
 # 每個地區的顯示上下限
 REGION_DISPLAY_MAX = {"台灣": 20, "中國": 15, "東南亞": 10, "全球": 20}
@@ -770,7 +770,7 @@ def _make_region_page(region: str, scored_map: dict) -> str:
       {"&nbsp;·&nbsp; 已過濾 " + str(filtered_out) + " 筆低相關" if filtered_out else ""}
     </div>
   </div>
-  <div class='hotai-note'>集團適配度：40% Qwen語意 + 40% 業務關鍵字 + 20% 地區/輪次規則</div>
+  <div class='hotai-note'>集團適配度：2.5基準分 + 40% Qwen語意 + 40% 業務關鍵字 + 20% 地區/輪次規則</div>
   <table class='dt' cellspacing='0'>
     <thead><tr>
       <th>#</th>
