@@ -227,6 +227,11 @@ footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top
       <span class="filter-label">搜尋</span>
       <input type="text" id="searchBox" class="search-input" placeholder="公司名稱 / 新聞標題關鍵字…">
     </div>
+    <div class="filter-row">
+      <span class="filter-label">排序依據</span>
+      <span class="chip active" data-sort="groupFit">集團適配度</span>
+      <span class="chip" data-sort="startupScore">新創推薦度</span>
+    </div>
   </div>
 
   <div class="kpi-row" id="kpiRow"></div>
@@ -238,10 +243,10 @@ footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top
     <div class="chart-card"><h3>融資輪次分佈</h3><div id="chartStage"></div></div>
   </div>
 
-  <div class="section-title">本週焦點摘要 Top 10（依集團適配度排序）</div>
+  <div class="section-title" id="summaryTitle">本週焦點摘要 Top 10（依集團適配度排序）</div>
   <div class="card-list" id="summaryList"></div>
 
-  <div class="section-title" style="margin-top:24px;">完整文章列表（依集團適配度排序）</div>
+  <div class="section-title" id="listTitle" style="margin-top:24px;">完整文章列表（依集團適配度排序）</div>
   <div class="list-meta" id="listMeta"></div>
   <div class="card-list" id="cardList"></div>
 
@@ -301,7 +306,18 @@ const state = {
   tags: new Set(),      // empty = no tag filter applied (show all)
   industries: new Set(), // empty = no industry filter applied
   search: "",
+  sortBy: "groupFit",   // "groupFit" (集團適配度) or "startupScore" (新創推薦度)
 };
+
+const SORT_LABELS = { groupFit: "集團適配度", startupScore: "新創推薦度" };
+document.querySelectorAll(".filters [data-sort]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".filters [data-sort]").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.sortBy = btn.dataset.sort;
+    render();
+  });
+});
 
 // allowEmpty: an empty activeSet means "no filter applied" (every chip renders as active)
 function buildChipRow(containerId, items, labelFn, activeSet, allowEmpty) {
@@ -444,8 +460,11 @@ function render() {
   renderBarChart("chartStage", stageCounts, STAGE_ORDER);
 
   // Sorted once, shared by the Top 10 summary and the full list below it
-  const sorted = [...filtered].sort((a, b) => (b.groupFit || 0) - (a.groupFit || 0));
+  const sortLabel = SORT_LABELS[state.sortBy];
+  const sorted = [...filtered].sort((a, b) => (b[state.sortBy] || 0) - (a[state.sortBy] || 0));
 
+  document.getElementById("summaryTitle").textContent = `本週焦點摘要 Top 10（依${sortLabel}排序）`;
+  document.getElementById("listTitle").textContent = `完整文章列表（依${sortLabel}排序）`;
   renderCardList("summaryList", sorted.slice(0, 10), "目前篩選範圍內沒有文章可摘要");
   document.getElementById("listMeta").textContent = `共 ${total} 篇符合篩選條件`;
   renderCardList("cardList", sorted, "沒有符合篩選條件的文章 — 試試放寬時間區間或篩選條件");
