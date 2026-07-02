@@ -283,12 +283,35 @@ const state = {
   preset: "all",
   dateFrom: null,
   dateTo: null,
-  regions: new Set(allRegions),
+  region: null,          // null = 全部；否則單一地區（點台灣只顯示台灣，不是多選）
   tags: new Set(),      // empty = no tag filter applied (show all)
   industries: new Set(), // empty = no industry filter applied
   search: "",
   sortBy: "groupFit",   // "groupFit" (集團適配度) or "startupScore" (新創推薦度)
 };
+
+// 地區是單選（像分頁一樣）：點台灣只顯示台灣，「全部」重設回顯示所有地區
+function buildRegionChips(containerId, items) {
+  const container = document.getElementById(containerId);
+  const allChip = document.createElement("span");
+  allChip.textContent = "全部";
+  allChip.addEventListener("click", () => { state.region = null; refreshRegionChips(); render(); });
+  container.appendChild(allChip);
+  const chips = items.map(item => {
+    const chip = document.createElement("span");
+    chip.textContent = item;
+    chip.addEventListener("click", () => { state.region = item; refreshRegionChips(); render(); });
+    container.appendChild(chip);
+    return chip;
+  });
+  function refreshRegionChips() {
+    allChip.className = "chip" + (state.region === null ? " active" : "");
+    chips.forEach((chip, idx) => {
+      chip.className = "chip" + (state.region === items[idx] ? " active" : "");
+    });
+  }
+  refreshRegionChips();
+}
 
 const SORT_LABELS = { groupFit: "集團適配度", startupScore: "新創推薦度" };
 document.querySelectorAll(".filters [data-sort]").forEach(btn => {
@@ -324,7 +347,7 @@ function buildChipRow(containerId, items, labelFn, activeSet, allowEmpty) {
   refreshChips();
 }
 
-buildChipRow("regionFilters", allRegions, r => r, state.regions, false);
+buildRegionChips("regionFilters", allRegions);
 buildChipRow("tagFilters", allTags, t => TAG_LABELS[t] || t, state.tags, true);
 buildChipRow("industryFilters", allIndustries, i => i, state.industries, true);
 
@@ -372,7 +395,7 @@ function filterData() {
   return DATA.filter(d => {
     if (from && d.date < from) return false;
     if (to && d.date > to) return false;
-    if (!state.regions.has(d.region)) return false;
+    if (state.region && d.region !== state.region) return false;
     if (state.tags.size > 0 && !(d.tags || []).some(t => state.tags.has(t))) return false;
     if (state.industries.size > 0 && !(d.industry || []).some(i => state.industries.has(i))) return false;
     if (state.search) {
