@@ -17,7 +17,7 @@ from ai_processor import get_sheet
 from config import (
     SOURCES, REGION_EMOJI, INDUSTRY_COLOR, STAGE_ORDER, REGION_ORDER,
     MIN_DISPLAY_GROUP_FIT, REGION_DISPLAY_MAX, REGION_DISPLAY_MIN,
-    SEA_EXCLUDE_SOURCES, INDUSTRY_KEYWORDS,
+    SEA_EXCLUDE_SOURCES, INDUSTRY_KEYWORDS, TAG_LABELS,
 )
 
 logger = logging.getLogger(__name__)
@@ -472,6 +472,7 @@ table.dt tr:last-child td { border-bottom: none; }
 .badge-green  { background: #d4f4e2; color: #1a7a3e; }
 .badge-blue   { background: #ddeeff; color: #1a4a8e; }
 .badge-orange { background: #fdebd0; color: #a05000; }
+.badge-tag    { background: #eef3fb; color: #1a5cb5; border: 1px solid #b8d0f0; margin: 1px 2px 1px 0; }
 /* Notable list */
 .notable-list { list-style: none; }
 .notable-list li { padding: 7px 0; border-bottom: 1px solid #eef0f6; }
@@ -497,6 +498,14 @@ def _score_badge(v: float | None) -> str:
     if v >= 4:
         return f"<span class='score-mid'>{v:.1f}</span>"
     return f"<span class='score-lo'>{v:.1f}</span>"
+
+
+def _tags_html(doc: dict) -> str:
+    """把 fitTags（FIT_KEYWORDS 分類 key）轉成和泰業務版圖的中文顯示名稱徽章。"""
+    labels = [TAG_LABELS.get(t, t) for t in (doc.get("fitTags") or [])]
+    if not labels:
+        return "<span class='score-na'>-</span>"
+    return "".join(f"<span class='badge badge-tag'>{_html.escape(l)}</span>" for l in labels)
 
 
 def _bar_table(pct: float, total_width: int = 120) -> str:
@@ -553,7 +562,7 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
             stage   = _html.escape(doc.get("stage") or "—")
             url     = _html.escape(doc.get("sourceUrl") or "")
             region  = _html.escape(doc.get("region") or "—")
-            tags    = _html.escape(", ".join(doc.get("fitTags") or []))
+            tags    = _tags_html(doc)
             # 新欄位優先，fallback 舊欄位（向後相容舊 Firebase 文件）
             hotai   = doc.get("groupFitScore") or doc.get("hotaiFitScore")
             fit     = doc.get("startupScore")  or doc.get("fitScore")
@@ -660,8 +669,8 @@ def _make_region_page(region: str, scored_map: dict) -> str:
         )
         docs = docs + extra[:max(0, min_count - len(docs))]
 
-    # 排序：有融資的優先，再按集團適配度降序；最多取上限
-    docs = sorted(docs, key=lambda d: (has_funding(d), group_fit(d)), reverse=True)[:max_count]
+    # 排序：集團適配度降序為主，有融資的在同分時優先；最多取上限
+    docs = sorted(docs, key=lambda d: (group_fit(d), has_funding(d)), reverse=True)[:max_count]
 
     filtered_out = len([d for d in scored_map.values()
                         if d.get("region") == region]) - len(docs)
@@ -692,6 +701,7 @@ def _make_region_page(region: str, scored_map: dict) -> str:
         hotai     = doc.get("hotaiFitScore")
         fit       = doc.get("fitScore")
         ml        = doc.get("mlScore")
+        tags_cell = _tags_html(doc)
 
         # 新聞標題欄：有真實標題用藍色粗體，舊資料（公司名 fallback）用灰色斜體
         if _has_real_title:
@@ -720,6 +730,7 @@ def _make_region_page(region: str, scored_map: dict) -> str:
             f"<td>{title_cell}</td>"                                          # 新聞標題
             f"<td><span class='badge badge-blue'>{industry}</span><br>{company_cell}</td>"  # 公司名稱
             f"<td style='color:#4a5a7a;font-size:.81rem'>{ai_summary}</td>"  # AI 生成摘要
+            f"<td>{tags_cell}</td>"                                           # 和泰相關事業
             f"<td style='color:#8a9ab5;white-space:nowrap;font-size:.78rem'>{extracted}</td>"
             f"<td style='text-align:center'>{_score_badge(hotai)}</td>"
             f"<td style='text-align:center'>{_score_badge(fit)}</td>"
@@ -731,7 +742,7 @@ def _make_region_page(region: str, scored_map: dict) -> str:
   <div class='region-header'>
     <h2>{_html.escape(region)} 新創投資情報</h2>
     <div class='sub'>
-      顯示 {len(docs)} 家（集團適配度 ≥ {MIN_DISPLAY_GROUP_FIT}，融資新聞優先）
+      顯示 {len(docs)} 家（集團適配度 ≥ {MIN_DISPLAY_GROUP_FIT}，依集團適配度由高到低排序）
       {"&nbsp;·&nbsp; 已過濾 " + str(filtered_out) + " 筆低相關" if filtered_out else ""}
     </div>
   </div>
@@ -742,6 +753,7 @@ def _make_region_page(region: str, scored_map: dict) -> str:
       <th>新聞標題</th>
       <th>相關公司名稱 / 產業 / 輪次</th>
       <th>AI 生成摘要</th>
+      <th>和泰相關事業</th>
       <th>評分日期</th>
       <th style='text-align:center'>集團適配度</th>
       <th style='text-align:center'>新創推薦度</th>
