@@ -28,8 +28,11 @@ def load_all_startups() -> list[dict]:
     for col in cols:
         for doc in db.collection(col).stream():
             d = doc.to_dict()
-            extracted_at = d.get("extractedAt", "")
-            date = extracted_at[:10] if extracted_at else col.replace("startups_", "")
+            # Use the collection's batch date, not extractedAt — extractedAt is when the
+            # AI scoring ran, which can be days later than the batch for backfilled tabs
+            # (e.g. 0626 backfilled on 0703/0706), and would otherwise misfile records
+            # under the wrong day.
+            date = col.replace("startups_", "")
 
             group_fit = d.get("groupFitScore")
             if group_fit is None:
