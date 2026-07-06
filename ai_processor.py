@@ -494,7 +494,11 @@ def parse_response(text: str) -> dict | None:
     return None
 
 
-# ── Gemini（備用） ──
+# ── Gemini（主力，額度用完後 fallback 回 Qwen） ──
+
+class GeminiQuotaExceeded(Exception):
+    """Gemini free-tier quota exhausted (HTTP 429) — stop trying Gemini for the rest of this run."""
+
 
 def call_gemini(prompt: str) -> dict | None:
     payload = {
@@ -502,6 +506,8 @@ def call_gemini(prompt: str) -> dict | None:
         "generationConfig": {"temperature": 0.1, "maxOutputTokens": 600},
     }
     resp = requests.post(f"{GEMINI_ENDPOINT}?key={GEMINI_API_KEY}", json=payload, timeout=30)
+    if resp.status_code == 429:
+        raise GeminiQuotaExceeded(resp.text[:200])
     if resp.status_code != 200:
         raise RuntimeError(f"Gemini {resp.status_code}: {resp.text[:150]}")
     try:
@@ -509,6 +515,24 @@ def call_gemini(prompt: str) -> dict | None:
     except (KeyError, IndexError):
         return None
     return parse_response(raw)
+
+
+_gemini_exhausted = False  # set True for the rest of this process once quota runs out
+
+
+def call_llm_with_retry(prompt: str, max_retries: int = 3) -> dict | None:
+    """Try Gemini first (fast, offloads the slow local Qwen); once its quota is
+    exhausted for the day, fall back to Qwen for the remainder of this run."""
+    global _gemini_exhausted
+    if GEMINI_API_KEY and not _gemini_exhausted:
+        try:
+            return call_gemini(prompt)
+        except GeminiQuotaExceeded:
+            logger.warning("Gemini quota exhausted — switching to Qwen for the rest of this run")
+            _gemini_exhausted = True
+        except Exception as e:
+            logger.warning("Gemini error, falling back to Qwen for this call: %s", e)
+    return _call_ollama_with_retry(prompt, max_retries=max_retries)
 
 
 # ── Scoring ──
@@ -922,7 +946,7 @@ def process_raw_articles_by_region(region: str, tab_name: str, limit: int | None
                 prompt = build_classify_and_extract_prompt(
                     item["title"], item["summary"], item["prefilled"]
                 )
-                result = _call_ollama_with_retry(prompt)
+                result = call_llm_with_retry(prompt)
                 if result is None:
                     # Ollama unreachable — leave unprocessed so next run retries
                     logger.error("    ❌ Ollama unavailable, skipping row %d (will retry next run)", item["row"])
@@ -962,7 +986,7 @@ def process_raw_articles_by_region(region: str, tab_name: str, limit: int | None
         try:
             logger.info("🔍 [%d/%d] %s", j + 1, len(to_extract), item["title"][:60])
             prompt = build_extract_prompt(item["title"], item["summary"], url, item["prefilled"])
-            result = _call_ollama_with_retry(prompt)
+            result = call_llm_with_retry(prompt)
 
             if result is None:
                 logger.warning("   ⚠️  Ollama parse failure for: %s", item["title"][:60])
