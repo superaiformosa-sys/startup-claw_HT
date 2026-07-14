@@ -26,16 +26,19 @@ MAX_GEMINI_PER_RUN      = 20
 
 SOURCES = [
     # ── 台灣 ──
-    {"id": "bnext",      "name": "數位時代",            "rss": "https://www.bnext.com.tw/rss",                                                                                                    "region": "台灣", "enabled": True, "require_funding": True},
+    # bnext direct RSS (bnext.com.tw/rss) 404s as of 2026-07 — site dropped the feed; routed via Google News site: query instead
+    {"id": "bnext",      "name": "數位時代",            "rss": "https://news.google.com/rss/search?q=site:bnext.com.tw&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",                                          "region": "台灣", "enabled": True, "require_funding": True},
     {"id": "meet",       "name": "Meet 創業小聚",        "rss": "https://meet.bnext.com.tw/rss",                                                                                                   "region": "台灣", "enabled": True, "require_funding": True},
     {"id": "tc_tw",      "name": "TechCrunch TW",        "rss": "https://news.google.com/rss/search?q=新創+募資+台灣&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",                                             "region": "台灣", "enabled": True},
     {"id": "gn_tw1",     "name": "台灣新創 Google News", "rss": "https://news.google.com/rss/search?q=台灣+新創+融資+完成&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",                                         "region": "台灣", "enabled": True},
     {"id": "techorange",  "name": "科技報橘",            "rss": "https://buzzorange.com/techorange/feed/",                                                                                         "region": "台灣", "enabled": True, "require_funding": True},
-    {"id": "inside_tw",   "name": "Inside 硬塞",         "rss": "https://www.inside.com.tw/feeds",                                                                                                 "region": "台灣", "enabled": True, "require_funding": True},
+    # inside.com.tw direct RSS (/feeds 404, /rss 403) as of 2026-07 — routed via Google News site: query instead
+    {"id": "inside_tw",   "name": "Inside 硬塞",         "rss": "https://news.google.com/rss/search?q=site:inside.com.tw&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",                                        "region": "台灣", "enabled": True, "require_funding": True},
     {"id": "gn_tw_fund",  "name": "台灣融資 Google News", "rss": "https://news.google.com/rss/search?q=台灣+新創+(A輪+OR+B輪+OR+種子輪+OR+天使輪+OR+IPO)+融資&hl=zh-TW&gl=TW&ceid=TW:zh-Hant",  "region": "台灣", "enabled": True},
     # ── 中國 ──
     {"id": "36kr",       "name": "36氪",               "rss": "https://36kr.com/feed",                                                               "region": "中國", "enabled": True},
-    {"id": "lieyunwang", "name": "獵雲網",              "rss": "https://www.lieyunwang.com/rss.xml",                                                  "region": "中國", "enabled": True},
+    # lieyunwang.com domain no longer resolves (NXDOMAIN globally, confirmed via dns.google as of 2026-07) and isn't indexed by Google News either — disabled, no working route found
+    {"id": "lieyunwang", "name": "獵雲網",              "rss": "https://www.lieyunwang.com/rss.xml",                                                  "region": "中國", "enabled": False},
     {"id": "cn_google",  "name": "中國新創 Google News", "rss": "https://news.google.com/rss/search?q=中国+创业+融资+startup&hl=zh-CN&gl=CN&ceid=CN:zh-Hans", "region": "中國", "enabled": True},
     {"id": "cn_google2", "name": "中國科技 Google News", "rss": "https://news.google.com/rss/search?q=中国+科技+独角兽+IPO&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",   "region": "中國", "enabled": True},
     # ── 東南亞 ──
@@ -44,7 +47,8 @@ SOURCES = [
     # Technode: reports Chinese tech news (excluded from SEA page filter)
     {"id": "technode",   "name": "Technode",               "rss": "https://technode.com/feed/",                                                                                               "region": "東南亞", "enabled": True, "require_funding": True},
     # Tech In Asia: best SEA startup coverage (SG/TH/MY/ID/VN/PH)
-    {"id": "techinasia", "name": "Tech In Asia",           "rss": "https://www.techinasia.com/feed",                                                                                          "region": "東南亞", "enabled": True, "require_funding": True},
+    # techinasia.com/feed is the correct URL but 403s here (Cloudflare/bot-block on this network) — routed via Google News site: query instead
+    {"id": "techinasia", "name": "Tech In Asia",           "rss": "https://news.google.com/rss/search?q=site:techinasia.com&hl=en&gl=SG&ceid=SG:en",                                          "region": "東南亞", "enabled": True, "require_funding": True},
     # e27: Singapore-based SEA startup media
     {"id": "e27",        "name": "e27",                    "rss": "https://e27.co/feed/",                                                                                                     "region": "東南亞", "enabled": True, "require_funding": True},
     # Google News country-specific queries
