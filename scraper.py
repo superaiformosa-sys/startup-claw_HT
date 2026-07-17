@@ -77,9 +77,21 @@ def get_existing_urls(ws: gspread.Worksheet) -> set:
     return set(col[1:])     # 跳過 header
 
 
-def fetch_rss(url: str) -> list[dict]:
+def fetch_rss(url: str, retries: int = 2, retry_delay: float = 3.0) -> list[dict]:
     try:
         feed = feedparser.parse(url, request_headers={"User-Agent": "Mozilla/5.0 (compatible; FeedBot/1.0)"})
+        # news.google.com search feeds intermittently come back with 0 entries (no error,
+        # no bozo flag — Google just serves an empty result set to some requesters) and
+        # succeed a few seconds later on retry. Confirmed on 2026-07-17: GitHub Actions CI
+        # got 0 entries for a bnext.com.tw query three weeks running, while the same URL
+        # returned 92 entries seconds apart from a different network. Only retry Google
+        # News URLs — a real 403/404 on a normal feed already raises before we get here.
+        attempt = 0
+        while not feed.entries and "news.google.com" in url and attempt < retries:
+            attempt += 1
+            logger.warning("  %s returned 0 entries — retry %d/%d", url, attempt, retries)
+            time.sleep(retry_delay)
+            feed = feedparser.parse(url, request_headers={"User-Agent": "Mozilla/5.0 (compatible; FeedBot/1.0)"})
         articles = []
         for entry in feed.entries:
             if not is_within_one_week(entry): continue
