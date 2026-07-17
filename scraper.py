@@ -8,7 +8,7 @@ import feedparser
 import gspread
 from google.oauth2.service_account import Credentials
 import json
-from config import SOURCES, SKIP_KEYWORDS, FUNDING_TITLE_KEYWORDS, MAX_ARTICLES_PER_SOURCE, SHEETS_ID, GOOGLE_CREDENTIALS_JSON
+from config import SOURCES, SKIP_KEYWORDS, FUNDING_TITLE_KEYWORDS, MAX_ARTICLES_PER_SOURCE, SHEETS_ID, GOOGLE_CREDENTIALS_JSON, REGION_AI_TARGET
 
 logger = logging.getLogger(__name__)
 
@@ -131,13 +131,34 @@ def has_funding_keyword(title: str) -> bool:
     return any(kw.lower() in t for kw in FUNDING_TITLE_KEYWORDS)
 
 
+def _build_row(article: dict, source: dict) -> list:
+    content = "\n\n".join(filter(None, [
+        f"標題：{article['title']}",
+        f"摘要：{article['description']}",
+        f"內文：{clean_html(article['content'])[:3000]}" if article["content"] else "",
+    ]))
+    return [
+        article["url"],
+        article["title"],
+        content,
+        source["id"],
+        source["region"],
+        datetime.now(timezone.utc).isoformat(),
+        "false",
+        article.get("publishedAt", ""),   # col 8: publishedAt for AI processor date-filter
+    ]
+
+
 def scrape_source(source: dict, ws: gspread.Worksheet, existing_urls: set,
-                  seen_titles: list[str], articles: list[dict] | None = None) -> int:
+                  seen_titles: list[str], articles: list[dict] | None = None,
+                  backup: list[list] | None = None) -> int:
+    """backup: 若給定，require_funding 濾掉的文章不會被丟棄，而是組成候補列（row）
+    放進這個 list，供呼叫端在該地區篇數不足時（REGION_AI_TARGET）補進 sheet。"""
     if articles is None:
         articles = fetch_rss(source["rss"])
     rows_batch = []
     logger.info("  %s: found %d articles", source["name"], len(articles))
-    saved = skipped_dup = skipped_kw = 0
+    saved = skipped_dup = skipped_kw = backed_up = 0
 
     for article in articles:
         if saved >= MAX_ARTICLES_PER_SOURCE:
@@ -151,28 +172,18 @@ def scrape_source(source: dict, ws: gspread.Worksheet, existing_urls: set,
         if source.get("require_funding") and not has_funding_keyword(article["title"]):
             skipped_kw += 1
             logger.debug("  Skip (no funding keyword): %s", article["title"][:50])
+            if backup is not None and not _is_duplicate_title(article["title"], seen_titles):
+                backup.append(_build_row(article, source))
+                existing_urls.add(article["url"])
+                seen_titles.append(_normalize_title(article["title"]))
+                backed_up += 1
             continue
         if _is_duplicate_title(article["title"], seen_titles):
             skipped_dup += 1
             logger.debug("  Skip (duplicate title): %s", article["title"][:50])
             continue
 
-        content = "\n\n".join(filter(None, [
-            f"標題：{article['title']}",
-            f"摘要：{article['description']}",
-            f"內文：{clean_html(article['content'])[:3000]}" if article["content"] else "",
-        ]))
-
-        rows_batch.append([
-            article["url"],
-            article["title"],
-            content,
-            source["id"],
-            source["region"],
-            datetime.now(timezone.utc).isoformat(),
-            "false",
-            article.get("publishedAt", ""),   # col 8: publishedAt for AI processor date-filter
-        ])
+        rows_batch.append(_build_row(article, source))
         existing_urls.add(article["url"])
         seen_titles.append(_normalize_title(article["title"]))
         saved += 1
@@ -180,8 +191,44 @@ def scrape_source(source: dict, ws: gspread.Worksheet, existing_urls: set,
     if rows_batch:
         ws.append_rows(rows_batch, value_input_option="RAW")
         time.sleep(1.5)
-    logger.info("  Saved %d | dup_skip=%d kw_skip=%d", saved, skipped_dup, skipped_kw)
+    logger.info("  Saved %d | dup_skip=%d kw_skip=%d backup=%d", saved, skipped_dup, skipped_kw, backed_up)
     return saved
+
+
+def _rank_backup(backup: list[list]) -> list[list]:
+    """把候補列依 ai_processor.rule_classify 的判斷排序：'startup'（AI 大機率會收）優先，
+    'ambiguous' 次之（一樣會送 AI 判斷），rule_classify 判 'skip' 的直接丟掉——那些補了也不
+    會真的被送去給 AI（Stage0 會免費濾掉），對「送 AI 篇數」的目標沒有幫助。"""
+    from ai_processor import rule_classify
+    buckets: dict[str, list[list]] = {"startup": [], "ambiguous": []}
+    for row in backup:
+        title = row[1] if len(row) > 1 else ""
+        verdict = rule_classify(title)
+        if verdict in buckets:
+            buckets[verdict].append(row)
+    return buckets["startup"] + buckets["ambiguous"]
+
+
+def _top_up_region(ws: gspread.Worksheet, region: str, backup: list[list]) -> None:
+    target = REGION_AI_TARGET.get(region)
+    if not target or not backup:
+        return
+    rows = ws.get_all_values()
+    region_count = sum(1 for r in rows[1:] if len(r) > 4 and r[4].strip() == region)
+    gap = target - region_count
+    if gap <= 0:
+        logger.info("🔁 [%s] already at target (%d/%d) — no top-up needed", region, region_count, target)
+        return
+    ranked = _rank_backup(backup)
+    top_up = ranked[:gap]
+    if not top_up:
+        logger.warning("🔁 [%s] below target (%d/%d) but no viable candidates in backlog (all rule-skip)",
+                       region, region_count, target)
+        return
+    ws.append_rows(top_up, value_input_option="RAW")
+    time.sleep(1.5)
+    logger.info("🔁 [%s] below target (%d/%d) — topped up %d from require_funding backlog (had %d candidates)",
+                region, region_count, target, len(top_up), len(backup))
 
 
 def run_all_scrapers(tab_name: str | None = None) -> str:
@@ -212,11 +259,16 @@ def run_all_scrapers(tab_name: str | None = None) -> str:
                 prefetched[source["id"]] = []
 
     # Write to Sheets sequentially to preserve dedup order and respect rate limits
+    backups_by_region: dict[str, list[list]] = {r: [] for r in REGION_AI_TARGET}
     for source in enabled:
         try:
-            scrape_source(source, ws, existing_urls, seen_titles, prefetched.get(source["id"]))
+            scrape_source(source, ws, existing_urls, seen_titles, prefetched.get(source["id"]),
+                          backup=backups_by_region.get(source["region"]))
         except Exception as e:
             logger.error("❌ %s: %s", source["id"], e)
+
+    for region, backup in backups_by_region.items():
+        _top_up_region(ws, region, backup)
 
     logger.info("✅ runAllScrapers done")
     return tab_name
@@ -230,14 +282,17 @@ def run_scraper_by_region(region: str, tab_name: str | None = None) -> str:
     ws = get_or_create_sheet(gc, tab_name)
     existing_urls = get_existing_urls(ws)
     seen_titles: list[str] = []
+    backup: list[list] = []
 
     sources = [s for s in SOURCES if s["enabled"] and s["region"] == region]
     logger.info("scrape [%s]: %d sources", region, len(sources))
 
     for source in sources:
         try:
-            scrape_source(source, ws, existing_urls, seen_titles)
+            scrape_source(source, ws, existing_urls, seen_titles, backup=backup)
         except Exception as e:
             logger.error("❌ %s: %s", source["id"], e)
+
+    _top_up_region(ws, region, backup)
 
     return tab_name
