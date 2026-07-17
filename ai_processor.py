@@ -25,7 +25,7 @@ from config import (
     STAGE_MATURITY_SCORE, STAGE_MATURITY_DEFAULT,
     INVESTOR_COUNT_QUALITY_TIERS, DESC_LENGTH_QUALITY_TIERS,
 )
-from firebase_client import firestore_write
+from firebase_client import firestore_write, get_db
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +133,8 @@ def extract_funding_from_title(title: str) -> tuple[str, str]:
         r"([\d.]+\s*千萬[美台人]?幣?)",
         r"([\d.]+\s*萬[美台人]?幣?)",
         r"(\$[\d.]+[MmBbKk])",
+        r"(\$[\d.]+\s*[Mm]n)",       # "$8 Mn" 縮寫（常見於印度/亞洲財經媒體）
+        r"(\$[\d.]+\s*[Bb]n)",
         r"(USD?\s*[\d.]+[MmBb])",
         r"([\d.]+\s*[Mm]illion)",
         r"([\d.]+亿[美人]?元?)",
@@ -759,6 +761,20 @@ def collection_for_tab(tab_name: str) -> str:
     return today_collection()
 
 
+def _already_saved_this_week(collection: str, company: str) -> bool:
+    """公司名（AI 抽出的正式名稱，比標題關鍵字指紋可靠）這週是否已經存過。
+    標題層的指紋去重（見 scraper.py 的 fingerprint dedup）只在單次 process_raw_articles_by_region
+    呼叫內比對，遇到跨執行（例如 Gemini 額度上限分批跑）或標題沒寫金額/輪次的狀況會漏接——
+    這裡改成直接查 Firebase 本週這個 collection 裡是否已有同名公司，不受這兩個限制影響。"""
+    company = company.strip()
+    if not company:
+        return False
+    from google.cloud.firestore_v1.base_query import FieldFilter
+    db = get_db()
+    docs = db.collection(collection).where(filter=FieldFilter("companyName", "==", company)).limit(1).stream()
+    return any(True for _ in docs)
+
+
 def _persist_startup(item: dict, result: dict, ws, col_ref: str, region: str) -> str:
     """Validate, score, and persist a startup result to Firebase and Sheets.
     Returns 'saved' or 'skipped'. Raises on unexpected errors (caller handles)."""
@@ -827,6 +843,12 @@ def _persist_startup(item: dict, result: dict, ws, col_ref: str, region: str) ->
             result["groupFitScore"], HOTAI_MIN_FIT_SCORE, company[:50]
         )
         ws.update_cell(item["row"], 7, "filtered")
+        return "skipped"
+
+    if _already_saved_this_week(col_ref, company):
+        logger.info("   🔁 Skip: '%s' already saved to %s this week (duplicate coverage from another source)",
+                    company, col_ref)
+        ws.update_cell(item["row"], 7, "true")
         return "skipped"
 
     doc_id = hashlib.md5(url.encode()).hexdigest()[:16]
