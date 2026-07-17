@@ -616,7 +616,7 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
   <div class='report-header'>
     <h1>新創情報周報</h1>
     <div class='meta'>{week_str} &nbsp;·&nbsp; {today.strftime('%Y-%m-%d')} &nbsp;·&nbsp; {_html.escape(tab_name)}</div>
-    <div class='meta'>🔗 <a href='https://startup-claw-ht.vercel.app/'>查看完整儀表板 (startup-claw-ht.vercel.app)</a></div>
+    <div class='meta'>🔗 <a href='https://startup-claw-ht-ochre.vercel.app/'>查看完整儀表板 (startup-claw-ht-ochre.vercel.app)</a></div>
   </div>
 
   <table class='cards-table' cellspacing='0' cellpadding='0'><tr>
@@ -646,7 +646,7 @@ def _make_summary_page(tab_name: str, stats: dict, hotai_docs: list[dict],
     <tbody>{source_rows}</tbody></table>
   </div>
 
-  <div class='footer'>完整儀表板: <a href='https://startup-claw-ht.vercel.app/'>startup-claw-ht.vercel.app</a> &nbsp;·&nbsp; 報告產生時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} &nbsp;·&nbsp; Powered by Qwen 2.5 + Claude</div>
+  <div class='footer'>完整儀表板: <a href='https://startup-claw-ht-ochre.vercel.app/'>startup-claw-ht-ochre.vercel.app</a> &nbsp;·&nbsp; 報告產生時間: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} &nbsp;·&nbsp; Powered by Qwen 2.5 + Claude</div>
 </div>"""
 
 
