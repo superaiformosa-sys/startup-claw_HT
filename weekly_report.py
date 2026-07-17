@@ -854,7 +854,7 @@ def _make_scoring_legend() -> str:
           <td>
             掃描 12 大業務版圖的 FIT_KEYWORDS 關鍵字<br>
             每個類別命中 → 加分，上限 10 分<br>
-            <em>公式：min(命中類別數 × 命中密度 / 4 × 10, 10)</em>
+            <em>公式：min(命中類別加總 / 2 × 10, 10)，命中滿 2 個類別即滿分</em>
           </td>
           <td>
             可用來驗證 Qwen 評分是否合理<br>
@@ -863,6 +863,19 @@ def _make_scoring_legend() -> str:
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <div class='section' style='font-size:.8rem;color:#4a5a7a'>
+    <div class='section-title'>AI 怎麼打分（relevanceScore / hotaiFitScore）</div>
+    <p style='margin-bottom:6px'>
+      Qwen／Gemini 不是自由發揮，是照給定的規則打分：prompt 裡會附上 0–10 分的錨點說明
+      （例如「9–10 分 = 有明確金額與投資人的確定融資消息」「0–2 分 = 總經/股市/政策等不相關內容」），
+      並整段附上和泰集團 13 大業務版圖與 2026 策略重點的介紹，讓模型知道「契合」具體是在比對什麼。
+    </p>
+    <p>
+      這兩個 AI 自評分數各自只佔最終分數的 <strong>40% 權重</strong>，
+      會再跟關鍵字命中（mlScore）、地區/輪次業務規則加分混合計算，不是唯一依據。
+    </p>
   </div>
 
   <div class='section'>
@@ -883,7 +896,7 @@ def _make_scoring_legend() -> str:
     <strong>顯示門檻：</strong>集團適配度 ≥ {MIN_DISPLAY_GROUP_FIT} 才顯示於各地區報告中。
     顯示數量上限：台灣 {REGION_DISPLAY_MAX['台灣']}・中國 {REGION_DISPLAY_MAX['中國']}・
     東南亞 {REGION_DISPLAY_MAX['東南亞']}・全球 {REGION_DISPLAY_MAX['全球']}。<br>
-    <strong>LLM：</strong>Qwen 2.5 7B（本地 Ollama）&nbsp;·&nbsp;
+    <strong>LLM：</strong>Gemini 2.5 Flash-Lite（主要）+ Qwen3 8B（本地 Ollama，額度用完時備援）&nbsp;·&nbsp;
     <strong>報告產生：</strong>{datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}
   </div>
 </div>"""
